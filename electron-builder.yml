@@ -1,0 +1,28 @@
+appId: com.somyanath.timetracker
+productName: Time Tracker
+
+directories:
+  output: release
+  buildResources: build
+
+# Bundle the built processes and the tray icon; point Electron at the built main.
+files:
+  - out/**/*
+  - package.json
+extraResources:
+  - from: resources
+    to: resources
+extraMetadata:
+  main: out/main/index.js
+
+mac:
+  category: public.app-category.productivity
+  target:
+    - dir
+  # Menu-bar agent: no Dock icon, no app-switcher entry. This is the real
+  # LSUIElement grant (app.dock.hide() covers the same behaviour in `pnpm dev`).
+  extendInfo:
+    LSUIElement: true
+  # Personal use: no notarization; a free "Personal Team" signature (or none for
+  # a local --dir build) keeps TCC grants stable across rebuilds (see PRD).
+  identity: null
