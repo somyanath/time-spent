@@ -2,6 +2,7 @@ import type Database from 'better-sqlite3'
 import { ipcMain } from 'electron'
 import { createCategory, deleteCategory, listCategories, updateCategory } from './db/categories'
 import { getOrComputeDailyRollup } from './db/dailyRollup'
+import { createProject, deleteProject, listProjects, updateProject } from './db/projects'
 import { createRule, deleteRule, listRules, reorderRules } from './db/rules'
 import { getLocalDayRange } from './dayRange'
 import type { Category, ProductivityRating, Rule } from '../shared/category'
@@ -11,12 +12,17 @@ import {
   CATEGORIES_DELETE_CHANNEL,
   CATEGORIES_LIST_CHANNEL,
   CATEGORIES_UPDATE_CHANNEL,
+  PROJECTS_CREATE_CHANNEL,
+  PROJECTS_DELETE_CHANNEL,
+  PROJECTS_LIST_CHANNEL,
+  PROJECTS_UPDATE_CHANNEL,
   RULES_CREATE_CHANNEL,
   RULES_DELETE_CHANNEL,
   RULES_LIST_CHANNEL,
   RULES_REORDER_CHANNEL,
   TODAY_GET_SPANS_CHANNEL,
 } from '../shared/ipcChannels'
+import type { Project } from '../shared/project'
 
 /** Registers the IPC channels the renderer's preload bridge invokes. */
 export function registerIpcHandlers(db: Database.Database): void {
@@ -38,12 +44,29 @@ export function registerIpcHandlers(db: Database.Database): void {
   )
   ipcMain.handle(CATEGORIES_DELETE_CHANNEL, (_event, id: number): void => deleteCategory(db, id))
 
+  ipcMain.handle(PROJECTS_LIST_CHANNEL, (): Project[] => listProjects(db))
+  ipcMain.handle(
+    PROJECTS_CREATE_CHANNEL,
+    (_event, name: string, client?: string | null): Project => createProject(db, name, client ?? null),
+  )
+  ipcMain.handle(
+    PROJECTS_UPDATE_CHANNEL,
+    (_event, id: number, updates: { name?: string; client?: string | null }): void => updateProject(db, id, updates),
+  )
+  ipcMain.handle(PROJECTS_DELETE_CHANNEL, (_event, id: number): void => deleteProject(db, id))
+
   ipcMain.handle(RULES_LIST_CHANNEL, (): Rule[] => listRules(db))
   ipcMain.handle(
     RULES_CREATE_CHANNEL,
     (
       _event,
-      rule: { categoryId: number; appPattern?: string | null; titlePattern?: string | null; urlPattern?: string | null },
+      rule: {
+        categoryId: number
+        projectId?: number | null
+        appPattern?: string | null
+        titlePattern?: string | null
+        urlPattern?: string | null
+      },
     ): Rule => createRule(db, rule),
   )
   ipcMain.handle(RULES_DELETE_CHANNEL, (_event, id: number): void => deleteRule(db, id))

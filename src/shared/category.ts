@@ -15,7 +15,9 @@ export interface Category {
 
 /**
  * An ordered, user-defined mapping from observed span facts (app / title /
- * url pattern) to a Category. Applied at read time in `derive()` — the
+ * url pattern) to a Category and, independently, a Project (#19) — the same
+ * pattern match can assign either, both, so a Span carries both dimensions
+ * from one winning Rule. Applied at read time in `derive()` — the
  * lowest-priority source of categorization (ADR-0001); a stored Override
  * (#20) wins over any Rule. Lower `position` is matched first.
  *
@@ -25,6 +27,7 @@ export interface Category {
 export interface Rule {
   id: number
   categoryId: number
+  projectId: number | null
   position: number
   appPattern: string | null
   titlePattern: string | null

@@ -2,6 +2,7 @@ import type Database from 'better-sqlite3'
 import { listCategories } from './categories'
 import { getDerivationVersion } from './derivationVersion'
 import { getHeartbeatsForRange } from './heartbeats'
+import { listProjects } from './projects'
 import { listRules } from './rules'
 import { derive } from '../../shared/derive'
 import type { Span } from '../../shared/heartbeat'
@@ -23,9 +24,9 @@ interface DailyRollupRow {
 /**
  * The daily rollup read path: a cache in front of `derive()`, never a
  * replacement for raw heartbeats (ADR-0001). Recomputes whenever the day's
- * heartbeat count has changed, or Categories/Rules have been edited since
- * the row was cached (`rules_version`) — so editing a Rule re-derives
- * matching history immediately, with no migration. Always safely
+ * heartbeat count has changed, or Categories/Projects/Rules have been
+ * edited since the row was cached (`rules_version`) — so editing a Rule
+ * re-derives matching history immediately, with no migration. Always safely
  * re-derivable — deleting the row just forces a recompute.
  */
 export function getOrComputeDailyRollup(db: Database.Database, params: DailyRollupParams): Span[] {
@@ -41,8 +42,9 @@ export function getOrComputeDailyRollup(db: Database.Database, params: DailyRoll
   }
 
   const categories = listCategories(db)
+  const projects = listProjects(db)
   const rules = listRules(db)
-  const { spans } = derive({ heartbeats, categories, rules, now: params.now })
+  const { spans } = derive({ heartbeats, categories, projects, rules, now: params.now })
 
   db.prepare(
     `

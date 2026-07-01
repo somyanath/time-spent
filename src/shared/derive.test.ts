@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { derive } from './derive'
 import type { Category, Rule } from './category'
 import type { Heartbeat } from './heartbeat'
+import type { Project } from './project'
 
 function heartbeat(overrides: Partial<Heartbeat>): Heartbeat {
   return {
@@ -21,7 +22,20 @@ function category(overrides: Partial<Category>): Category {
 }
 
 function rule(overrides: Partial<Rule>): Rule {
-  return { id: 1, categoryId: 1, position: 0, appPattern: null, titlePattern: null, urlPattern: null, ...overrides }
+  return {
+    id: 1,
+    categoryId: 1,
+    projectId: null,
+    position: 0,
+    appPattern: null,
+    titlePattern: null,
+    urlPattern: null,
+    ...overrides,
+  }
+}
+
+function project(overrides: Partial<Project>): Project {
+  return { id: 1, name: 'Acme Website', client: null, ...overrides }
 }
 
 describe('derive', () => {
@@ -257,5 +271,71 @@ describe('derive categorization', () => {
       now: 1_000,
     })
     expect(after.spans[0]).toEqual(expect.objectContaining({ categoryId: 2, rating: 'distracting' }))
+  })
+})
+
+describe('derive project attribution', () => {
+  it('assigns a null project when no rules are given', () => {
+    const heartbeats = [heartbeat({ appName: 'Code' })]
+
+    const { spans } = derive({ heartbeats, now: 1_000 })
+
+    expect(spans[0]).toEqual(expect.objectContaining({ projectId: null, projectName: null }))
+  })
+
+  it('assigns a null project when the winning rule does not set one', () => {
+    const heartbeats = [heartbeat({ appName: 'Code' })]
+    const categories = [category({ id: 1, name: 'Code', rating: 'focus' })]
+    const rules = [rule({ id: 1, categoryId: 1, projectId: null, appPattern: 'Code' })]
+
+    const { spans } = derive({ heartbeats, categories, rules, now: 1_000 })
+
+    expect(spans[0]).toEqual(expect.objectContaining({ projectId: null, projectName: null }))
+  })
+
+  it('attributes a span to the project assigned by the winning rule, independent of its category', () => {
+    const heartbeats = [heartbeat({ appName: 'Figma' })]
+    const categories = [category({ id: 1, name: 'Design', rating: 'focus' })]
+    const projects = [project({ id: 1, name: 'Acme Website', client: 'Acme Corp' })]
+    const rules = [rule({ id: 1, categoryId: 1, projectId: 1, appPattern: 'Figma' })]
+
+    const { spans } = derive({ heartbeats, categories, projects, rules, now: 1_000 })
+
+    expect(spans[0]).toEqual(
+      expect.objectContaining({
+        categoryId: 1,
+        categoryName: 'Design',
+        projectId: 1,
+        projectName: 'Acme Website',
+      }),
+    )
+  })
+
+  it('re-derives project attribution when the winning rule is edited', () => {
+    const heartbeats = [heartbeat({ appName: 'Figma' })]
+    const categories = [category({ id: 1, name: 'Design', rating: 'focus' })]
+    const projects = [
+      project({ id: 1, name: 'Acme Website', client: 'Acme Corp' }),
+      project({ id: 2, name: 'Personal Site', client: null }),
+    ]
+
+    const before = derive({
+      heartbeats,
+      categories,
+      projects,
+      rules: [rule({ id: 1, categoryId: 1, projectId: 1, appPattern: 'Figma' })],
+      now: 1_000,
+    })
+    expect(before.spans[0]).toEqual(expect.objectContaining({ projectId: 1, projectName: 'Acme Website' }))
+
+    // No migration — the same stored heartbeats just re-derive with the edited Rule (ADR-0001).
+    const after = derive({
+      heartbeats,
+      categories,
+      projects,
+      rules: [rule({ id: 1, categoryId: 1, projectId: 2, appPattern: 'Figma' })],
+      now: 1_000,
+    })
+    expect(after.spans[0]).toEqual(expect.objectContaining({ projectId: 2, projectName: 'Personal Site' }))
   })
 })

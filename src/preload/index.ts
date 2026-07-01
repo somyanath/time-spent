@@ -5,6 +5,10 @@ import {
   CATEGORIES_DELETE_CHANNEL,
   CATEGORIES_LIST_CHANNEL,
   CATEGORIES_UPDATE_CHANNEL,
+  PROJECTS_CREATE_CHANNEL,
+  PROJECTS_DELETE_CHANNEL,
+  PROJECTS_LIST_CHANNEL,
+  PROJECTS_UPDATE_CHANNEL,
   RULES_CREATE_CHANNEL,
   RULES_DELETE_CHANNEL,
   RULES_LIST_CHANNEL,
@@ -26,6 +30,11 @@ const api: TimeTrackerApi = {
   createCategory: (name, rating) => ipcRenderer.invoke(CATEGORIES_CREATE_CHANNEL, name, rating),
   updateCategory: (id, updates) => ipcRenderer.invoke(CATEGORIES_UPDATE_CHANNEL, id, updates),
   deleteCategory: (id) => ipcRenderer.invoke(CATEGORIES_DELETE_CHANNEL, id),
+
+  listProjects: () => ipcRenderer.invoke(PROJECTS_LIST_CHANNEL),
+  createProject: (name, client) => ipcRenderer.invoke(PROJECTS_CREATE_CHANNEL, name, client),
+  updateProject: (id, updates) => ipcRenderer.invoke(PROJECTS_UPDATE_CHANNEL, id, updates),
+  deleteProject: (id) => ipcRenderer.invoke(PROJECTS_DELETE_CHANNEL, id),
 
   listRules: () => ipcRenderer.invoke(RULES_LIST_CHANNEL),
   createRule: (rule) => ipcRenderer.invoke(RULES_CREATE_CHANNEL, rule),

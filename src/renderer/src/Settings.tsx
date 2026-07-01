@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
 import type { Category, ProductivityRating, Rule } from '../../shared/category'
+import type { Project } from '../../shared/project'
 
 const RATING_LABEL: Record<ProductivityRating, string> = {
   focus: 'Focus',
@@ -9,29 +10,41 @@ const RATING_LABEL: Record<ProductivityRating, string> = {
 }
 
 /**
- * Category and Rule management (#18). Rules and Categories are the only
- * inputs this slice's `derive()` categorization layer reads, so this is
- * where the user shapes it: define Categories with a Productivity Rating,
- * then author ordered Rules mapping app/title/url patterns to a Category.
+ * Category, Project, and Rule management (#18, #19). Rules, Categories, and
+ * Projects are the inputs `derive()`'s categorization layer reads, so this
+ * is where the user shapes it: define Categories with a Productivity
+ * Rating and Projects with an optional client, then author ordered Rules
+ * mapping app/title/url patterns to a Category and, independently, a
+ * Project.
  */
 export function Settings(): JSX.Element {
   const api = typeof window !== 'undefined' ? window.timeTracker : undefined
 
   const [categories, setCategories] = useState<Category[]>([])
+  const [projects, setProjects] = useState<Project[]>([])
   const [rules, setRules] = useState<Rule[]>([])
 
   const [newCategoryName, setNewCategoryName] = useState('')
   const [newCategoryRating, setNewCategoryRating] = useState<ProductivityRating>('neutral')
 
+  const [newProjectName, setNewProjectName] = useState('')
+  const [newProjectClient, setNewProjectClient] = useState('')
+
   const [newRuleCategoryId, setNewRuleCategoryId] = useState<number | ''>('')
+  const [newRuleProjectId, setNewRuleProjectId] = useState<number | ''>('')
   const [newRuleAppPattern, setNewRuleAppPattern] = useState('')
   const [newRuleTitlePattern, setNewRuleTitlePattern] = useState('')
   const [newRuleUrlPattern, setNewRuleUrlPattern] = useState('')
 
   async function refresh(): Promise<void> {
     if (!api) return
-    const [nextCategories, nextRules] = await Promise.all([api.listCategories(), api.listRules()])
+    const [nextCategories, nextProjects, nextRules] = await Promise.all([
+      api.listCategories(),
+      api.listProjects(),
+      api.listRules(),
+    ])
     setCategories(nextCategories)
+    setProjects(nextProjects)
     setRules(nextRules)
   }
 
@@ -60,6 +73,21 @@ export function Settings(): JSX.Element {
     await refresh()
   }
 
+  async function handleAddProject(event: FormEvent): Promise<void> {
+    event.preventDefault()
+    if (!api || newProjectName.trim() === '') return
+    await api.createProject(newProjectName.trim(), newProjectClient.trim() || null)
+    setNewProjectName('')
+    setNewProjectClient('')
+    await refresh()
+  }
+
+  async function handleDeleteProject(id: number): Promise<void> {
+    if (!api) return
+    await api.deleteProject(id)
+    await refresh()
+  }
+
   async function handleAddRule(event: FormEvent): Promise<void> {
     event.preventDefault()
     if (!api || newRuleCategoryId === '') return
@@ -68,10 +96,17 @@ export function Settings(): JSX.Element {
     const urlPattern = newRuleUrlPattern.trim() || null
     if (!appPattern && !titlePattern && !urlPattern) return
 
-    await api.createRule({ categoryId: newRuleCategoryId, appPattern, titlePattern, urlPattern })
+    await api.createRule({
+      categoryId: newRuleCategoryId,
+      projectId: newRuleProjectId === '' ? null : newRuleProjectId,
+      appPattern,
+      titlePattern,
+      urlPattern,
+    })
     setNewRuleAppPattern('')
     setNewRuleTitlePattern('')
     setNewRuleUrlPattern('')
+    setNewRuleProjectId('')
     await refresh()
   }
 
@@ -94,6 +129,11 @@ export function Settings(): JSX.Element {
 
   function categoryName(id: number): string {
     return categories.find((c) => c.id === id)?.name ?? 'Unknown'
+  }
+
+  function projectName(id: number | null): string | null {
+    if (id === null) return null
+    return projects.find((p) => p.id === id)?.name ?? 'Unknown'
   }
 
   return (
@@ -145,6 +185,44 @@ export function Settings(): JSX.Element {
         </form>
       </section>
 
+      <section className="settings__section" aria-labelledby="projects-heading">
+        <h2 id="projects-heading" className="settings__section-title">
+          Projects
+        </h2>
+
+        {projects.length > 0 && (
+          <ul className="settings__list" aria-label="Projects">
+            {projects.map((project) => (
+              <li key={project.id} className="settings__list-item">
+                <span className="settings__list-item-name">{project.name}</span>
+                <span className="settings__list-item-meta">{project.client ?? 'No client'}</span>
+                <button type="button" className="settings__delete" onClick={() => handleDeleteProject(project.id)}>
+                  Delete
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+
+        <form className="settings__form" onSubmit={handleAddProject}>
+          <input
+            type="text"
+            placeholder="Project name"
+            value={newProjectName}
+            onChange={(e) => setNewProjectName(e.target.value)}
+            aria-label="New project name"
+          />
+          <input
+            type="text"
+            placeholder="Client (optional)"
+            value={newProjectClient}
+            onChange={(e) => setNewProjectClient(e.target.value)}
+            aria-label="New project client"
+          />
+          <button type="submit">Add Project</button>
+        </form>
+      </section>
+
       <section className="settings__section" aria-labelledby="rules-heading">
         <h2 id="rules-heading" className="settings__section-title">
           Rules
@@ -157,7 +235,10 @@ export function Settings(): JSX.Element {
           <ol className="settings__list" aria-label="Rules">
             {rules.map((rule, index) => (
               <li key={rule.id} className="settings__list-item">
-                <span className="settings__list-item-name">{categoryName(rule.categoryId)}</span>
+                <span className="settings__list-item-name">
+                  {categoryName(rule.categoryId)}
+                  {projectName(rule.projectId) && ` · ${projectName(rule.projectId)}`}
+                </span>
                 <span className="settings__list-item-meta">
                   {[
                     rule.appPattern && `app: "${rule.appPattern}"`,
@@ -204,6 +285,18 @@ export function Settings(): JSX.Element {
             {categories.map((category) => (
               <option key={category.id} value={category.id}>
                 {category.name}
+              </option>
+            ))}
+          </select>
+          <select
+            value={newRuleProjectId}
+            onChange={(e) => setNewRuleProjectId(e.target.value === '' ? '' : Number(e.target.value))}
+            aria-label="New rule project"
+          >
+            <option value="">No project</option>
+            {projects.map((project) => (
+              <option key={project.id} value={project.id}>
+                {project.name}
               </option>
             ))}
           </select>

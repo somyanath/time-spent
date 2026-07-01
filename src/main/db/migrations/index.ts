@@ -3,6 +3,8 @@ import { createDailyRollup } from './002-create-daily-rollup'
 import { createCategories } from './003-create-categories'
 import { createRules } from './004-create-rules'
 import { addDerivationVersion } from './005-add-derivation-version'
+import { createProjects } from './006-create-projects'
+import { addProjectIdToRules } from './007-add-project-id-to-rules'
 import type { Migration } from './types'
 
 /**
@@ -19,6 +21,8 @@ export const migrations: Migration[] = [
   createCategories,
   createRules,
   addDerivationVersion,
+  createProjects,
+  addProjectIdToRules,
 ]
 
 export { runMigrations } from './runner'

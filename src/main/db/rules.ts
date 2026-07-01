@@ -5,6 +5,7 @@ import type { Rule } from '../../shared/category'
 interface RuleRow {
   id: number
   categoryId: number
+  projectId: number | null
   position: number
   appPattern: string | null
   titlePattern: string | null
@@ -19,6 +20,7 @@ export function listRules(db: Database.Database): Rule[] {
       SELECT
         id,
         category_id AS categoryId,
+        project_id AS projectId,
         position,
         app_pattern AS appPattern,
         title_pattern AS titlePattern,
@@ -32,6 +34,7 @@ export function listRules(db: Database.Database): Rule[] {
 
 export interface NewRule {
   categoryId: number
+  projectId?: number | null
   appPattern?: string | null
   titlePattern?: string | null
   urlPattern?: string | null
@@ -39,6 +42,7 @@ export interface NewRule {
 
 /** Appends the Rule at the lowest priority (highest position); reorder afterward if it should match earlier. */
 export function createRule(db: Database.Database, rule: NewRule): Rule {
+  const projectId = rule.projectId ?? null
   const appPattern = rule.appPattern ?? null
   const titlePattern = rule.titlePattern ?? null
   const urlPattern = rule.urlPattern ?? null
@@ -53,16 +57,16 @@ export function createRule(db: Database.Database, rule: NewRule): Rule {
     const result = db
       .prepare(
         `
-        INSERT INTO rules (category_id, position, app_pattern, title_pattern, url_pattern)
-        VALUES (@categoryId, @position, @appPattern, @titlePattern, @urlPattern)
+        INSERT INTO rules (category_id, project_id, position, app_pattern, title_pattern, url_pattern)
+        VALUES (@categoryId, @projectId, @position, @appPattern, @titlePattern, @urlPattern)
       `,
       )
-      .run({ categoryId: rule.categoryId, position, appPattern, titlePattern, urlPattern })
+      .run({ categoryId: rule.categoryId, projectId, position, appPattern, titlePattern, urlPattern })
     id = result.lastInsertRowid as number
     bumpDerivationVersion(db)
   })()
 
-  return { id, categoryId: rule.categoryId, position, appPattern, titlePattern, urlPattern }
+  return { id, categoryId: rule.categoryId, projectId, position, appPattern, titlePattern, urlPattern }
 }
 
 export function deleteRule(db: Database.Database, id: number): void {

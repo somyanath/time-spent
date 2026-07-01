@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { createCategory } from './categories'
 import { getDerivationVersion } from './derivationVersion'
 import { migrations, runMigrations } from './migrations'
+import { createProject, deleteProject } from './projects'
 import { createRule, deleteRule, listRules, reorderRules } from './rules'
 
 describe('rules persistence', () => {
@@ -35,6 +36,31 @@ describe('rules persistence', () => {
     expect(rule).toEqual(
       expect.objectContaining({ appPattern: 'Code', titlePattern: null, urlPattern: null }),
     )
+  })
+
+  it('defaults projectId to null when not given', () => {
+    const rule = createRule(db, { categoryId, appPattern: 'Code' })
+
+    expect(rule.projectId).toBeNull()
+  })
+
+  it('creates a rule that assigns a project independently of its category', () => {
+    const projectId = createProject(db, 'Acme Website').id
+
+    const rule = createRule(db, { categoryId, projectId, appPattern: 'Figma' })
+
+    expect(rule).toEqual(expect.objectContaining({ categoryId, projectId }))
+  })
+
+  it('un-assigns a deleted project from rules that reference it, without deleting the rule', () => {
+    const projectId = createProject(db, 'Acme Website').id
+    const rule = createRule(db, { categoryId, projectId, appPattern: 'Figma' })
+
+    deleteProject(db, projectId)
+
+    const [persisted] = listRules(db)
+    expect(persisted.id).toBe(rule.id)
+    expect(persisted.projectId).toBeNull()
   })
 
   it('bumps the derivation version on create', () => {

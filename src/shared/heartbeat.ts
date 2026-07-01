@@ -22,8 +22,9 @@ export interface Heartbeat {
  * A contiguous interval with a single attribution, derived by merging
  * consecutive like-Heartbeats on read (`derive()`). Categorized via the
  * ordered Rules layer (`categoryId`/`categoryName`/`rating` are the
- * Uncategorized default when no Rule matches); Project and Overrides arrive
- * with later slices.
+ * Uncategorized default when no Rule matches) and, orthogonally, attributed
+ * to a Project the same way (`projectId`/`projectName` are null when no
+ * matching Rule assigns one). Overrides arrive with a later slice.
  */
 export interface Span {
   startedAt: number
@@ -35,6 +36,8 @@ export interface Span {
   categoryId: number | null
   categoryName: string
   rating: ProductivityRating
+  projectId: number | null
+  projectName: string | null
 }
 
 /** A single point-in-time poll result, before the tracker coalesces it into a Heartbeat. */

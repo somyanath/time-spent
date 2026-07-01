@@ -4,6 +4,7 @@ import { createCategory } from './categories'
 import { getOrComputeDailyRollup } from './dailyRollup'
 import { insertHeartbeats } from './heartbeats'
 import { migrations, runMigrations } from './migrations'
+import { createProject } from './projects'
 import { createRule } from './rules'
 import type { Heartbeat } from '../../shared/heartbeat'
 
@@ -127,5 +128,16 @@ describe('getOrComputeDailyRollup', () => {
 
     const after = getOrComputeDailyRollup(db, { dateKey: '2026-07-01', startMs: 0, endMs: 86_400_000, now: 3_000 })
     expect(after).toEqual([expect.objectContaining({ categoryId: distractionId, rating: 'distracting' })])
+  })
+
+  it('attributes spans to a Project via the current Rules, independent of their Category', () => {
+    const categoryId = createCategory(db, 'Design', 'focus').id
+    const projectId = createProject(db, 'Acme Website', 'Acme Corp').id
+    createRule(db, { categoryId, projectId, appPattern: 'Figma' })
+    insertHeartbeats(db, [heartbeat({ startedAt: 0, endedAt: 3_000, appName: 'Figma' })])
+
+    const spans = getOrComputeDailyRollup(db, { dateKey: '2026-07-01', startMs: 0, endMs: 86_400_000, now: 3_000 })
+
+    expect(spans).toEqual([expect.objectContaining({ projectId, projectName: 'Acme Website' })])
   })
 })

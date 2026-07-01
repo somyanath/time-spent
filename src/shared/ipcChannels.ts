@@ -6,6 +6,11 @@ export const CATEGORIES_CREATE_CHANNEL = 'categories:create'
 export const CATEGORIES_UPDATE_CHANNEL = 'categories:update'
 export const CATEGORIES_DELETE_CHANNEL = 'categories:delete'
 
+export const PROJECTS_LIST_CHANNEL = 'projects:list'
+export const PROJECTS_CREATE_CHANNEL = 'projects:create'
+export const PROJECTS_UPDATE_CHANNEL = 'projects:update'
+export const PROJECTS_DELETE_CHANNEL = 'projects:delete'
+
 export const RULES_LIST_CHANNEL = 'rules:list'
 export const RULES_CREATE_CHANNEL = 'rules:create'
 export const RULES_DELETE_CHANNEL = 'rules:delete'
