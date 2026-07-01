@@ -1,0 +1,164 @@
+:root {
+  --bg: #0f1115;
+  --surface: #171a21;
+  --surface-2: #1e222b;
+  --border: #272c37;
+  --text: #e6e8ee;
+  --text-dim: #9aa2b1;
+  --accent: #5b8cff;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  -webkit-font-smoothing: antialiased;
+}
+
+.app {
+  display: grid;
+  grid-template-columns: 200px 1fr;
+  height: 100vh;
+}
+
+.app__nav {
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+  padding: 56px 12px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.app__brand {
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--text-dim);
+  padding: 0 8px;
+}
+
+.app__nav-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.app__nav-item {
+  padding: 8px 10px;
+  border-radius: 8px;
+  font-size: 14px;
+  color: var(--text-dim);
+  cursor: default;
+}
+
+.app__nav-item--active {
+  background: var(--surface-2);
+  color: var(--text);
+  font-weight: 500;
+}
+
+.app__nav-item--disabled {
+  opacity: 0.45;
+}
+
+.app__main {
+  overflow: auto;
+  padding: 56px 40px 40px;
+}
+
+.today {
+  max-width: 720px;
+  margin: 0 auto;
+}
+
+.today__header {
+  margin-bottom: 40px;
+}
+
+.today__title {
+  font-size: 28px;
+  font-weight: 700;
+  margin: 0;
+}
+
+.today__date {
+  margin: 4px 0 0;
+  color: var(--text-dim);
+  font-size: 14px;
+}
+
+.today__empty {
+  border: 1px dashed var(--border);
+  border-radius: 16px;
+  background: var(--surface);
+  padding: 56px 32px;
+  text-align: center;
+}
+
+.today__empty-glyph {
+  width: 48px;
+  height: 48px;
+  margin: 0 auto 20px;
+  border-radius: 50%;
+  border: 3px solid var(--border);
+  position: relative;
+}
+
+.today__empty-glyph::before,
+.today__empty-glyph::after {
+  content: '';
+  position: absolute;
+  background: var(--border);
+  border-radius: 2px;
+  left: 50%;
+  top: 50%;
+  transform-origin: bottom center;
+}
+
+.today__empty-glyph::before {
+  width: 3px;
+  height: 14px;
+  transform: translate(-50%, -100%);
+}
+
+.today__empty-glyph::after {
+  width: 3px;
+  height: 10px;
+  transform: translate(-50%, -100%) rotate(90deg);
+}
+
+.today__empty-title {
+  font-size: 18px;
+  margin: 0 0 8px;
+}
+
+.today__empty-body {
+  color: var(--text-dim);
+  font-size: 14px;
+  line-height: 1.6;
+  margin: 0 auto;
+  max-width: 420px;
+}
+
+.today__footer {
+  margin-top: 32px;
+  text-align: center;
+  color: var(--text-dim);
+  font-size: 12px;
+  opacity: 0.7;
+}
