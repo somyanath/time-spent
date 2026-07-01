@@ -1,5 +1,8 @@
 import type { Category, ProductivityRating, Rule } from './category'
+import type { DiscardedSpan } from './discardedSpan'
 import type { Span } from './heartbeat'
+import type { ManualEntry } from './manualEntry'
+import type { Override } from './override'
 import type { Project } from './project'
 
 /**
@@ -36,4 +39,27 @@ export interface TimeTrackerApi {
   }) => Promise<Rule>
   deleteRule: (id: number) => Promise<void>
   reorderRules: (orderedIds: number[]) => Promise<void>
+
+  /** Asserts a Category/Project for the given time range, winning over Rules and surviving later Rule edits. */
+  createOverride: (override: {
+    startedAt: number
+    endedAt: number
+    categoryId: number
+    projectId?: number | null
+  }) => Promise<Override>
+  /** Reverts the time range to whatever the Rules layer computes for it. */
+  deleteOverride: (id: number) => Promise<void>
+
+  /** Adds a stored Span for time the tracker couldn't observe. */
+  createManualEntry: (entry: {
+    startedAt: number
+    endedAt: number
+    label: string
+    categoryId: number
+    projectId?: number | null
+  }) => Promise<ManualEntry>
+  deleteManualEntry: (id: number) => Promise<void>
+
+  /** Excludes the given time range from all metrics without touching the underlying Heartbeats. */
+  createDiscardedSpan: (span: { startedAt: number; endedAt: number }) => Promise<DiscardedSpan>
 }

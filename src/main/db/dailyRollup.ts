@@ -1,7 +1,10 @@
 import type Database from 'better-sqlite3'
 import { listCategories } from './categories'
 import { getDerivationVersion } from './derivationVersion'
+import { listDiscardedSpansForRange } from './discardedSpans'
 import { getHeartbeatsForRange } from './heartbeats'
+import { listManualEntriesForRange } from './manualEntries'
+import { listOverridesForRange } from './overrides'
 import { listProjects } from './projects'
 import { listRules } from './rules'
 import { derive } from '../../shared/derive'
@@ -44,7 +47,19 @@ export function getOrComputeDailyRollup(db: Database.Database, params: DailyRoll
   const categories = listCategories(db)
   const projects = listProjects(db)
   const rules = listRules(db)
-  const { spans } = derive({ heartbeats, categories, projects, rules, now: params.now })
+  const overrides = listOverridesForRange(db, params.startMs, params.endMs)
+  const manualEntries = listManualEntriesForRange(db, params.startMs, params.endMs)
+  const discardedSpans = listDiscardedSpansForRange(db, params.startMs, params.endMs)
+  const { spans } = derive({
+    heartbeats,
+    categories,
+    projects,
+    rules,
+    overrides,
+    manualEntries,
+    discardedSpans,
+    now: params.now,
+  })
 
   db.prepare(
     `

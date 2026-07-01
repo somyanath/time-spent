@@ -179,10 +179,32 @@ body {
 
 .today__timeline-item {
   display: flex;
-  justify-content: space-between;
-  align-items: baseline;
+  flex-direction: column;
+  gap: 10px;
   background: var(--surface);
   padding: 12px 16px;
+}
+
+.today__timeline-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.today__timeline-actions {
+  display: flex;
+  gap: 6px;
+  flex: none;
+}
+
+.today__timeline-override-form,
+.today__manual-entry-form {
+  margin-top: 4px;
+}
+
+.today__manual-entry-form {
+  margin-top: 16px;
 }
 
 .today__timeline-app {

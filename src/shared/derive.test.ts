@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import { derive } from './derive'
 import type { Category, Rule } from './category'
+import type { DiscardedSpan } from './discardedSpan'
 import type { Heartbeat } from './heartbeat'
+import type { ManualEntry } from './manualEntry'
+import type { Override } from './override'
 import type { Project } from './project'
 
 function heartbeat(overrides: Partial<Heartbeat>): Heartbeat {
@@ -36,6 +39,18 @@ function rule(overrides: Partial<Rule>): Rule {
 
 function project(overrides: Partial<Project>): Project {
   return { id: 1, name: 'Acme Website', client: null, ...overrides }
+}
+
+function override(overrides: Partial<Override>): Override {
+  return { id: 1, startedAt: 0, endedAt: 1_000, categoryId: 1, projectId: null, ...overrides }
+}
+
+function manualEntry(overrides: Partial<ManualEntry>): ManualEntry {
+  return { id: 1, startedAt: 0, endedAt: 1_000, label: 'Offline meeting', categoryId: 1, projectId: null, ...overrides }
+}
+
+function discardedSpan(overrides: Partial<DiscardedSpan>): DiscardedSpan {
+  return { id: 1, startedAt: 0, endedAt: 1_000, ...overrides }
 }
 
 describe('derive', () => {
@@ -337,5 +352,173 @@ describe('derive project attribution', () => {
       now: 1_000,
     })
     expect(after.spans[0]).toEqual(expect.objectContaining({ projectId: 2, projectName: 'Personal Site' }))
+  })
+})
+
+describe('derive overrides', () => {
+  it('wins over a conflicting rule for the overlapping span', () => {
+    const heartbeats = [heartbeat({ appName: 'Code', startedAt: 0, endedAt: 1_000 })]
+    const categories = [
+      category({ id: 1, name: 'Code', rating: 'focus' }),
+      category({ id: 2, name: 'Distraction', rating: 'distracting' }),
+    ]
+    const rules = [rule({ id: 1, categoryId: 1, appPattern: 'Code' })]
+    const overrides = [override({ id: 9, startedAt: 0, endedAt: 1_000, categoryId: 2 })]
+
+    const { spans } = derive({ heartbeats, categories, rules, overrides, now: 1_000 })
+
+    expect(spans).toEqual([
+      expect.objectContaining({ categoryId: 2, categoryName: 'Distraction', rating: 'distracting', overrideId: 9 }),
+    ])
+  })
+
+  it('survives a rule edit — the sticky override still wins after the rule changes', () => {
+    const heartbeats = [heartbeat({ appName: 'Code', startedAt: 0, endedAt: 1_000 })]
+    const categories = [
+      category({ id: 1, name: 'Code', rating: 'focus' }),
+      category({ id: 2, name: 'Distraction', rating: 'distracting' }),
+    ]
+    const overrides = [override({ startedAt: 0, endedAt: 1_000, categoryId: 2 })]
+
+    const before = derive({
+      heartbeats,
+      categories,
+      rules: [rule({ id: 1, categoryId: 1, appPattern: 'Code' })],
+      overrides,
+      now: 1_000,
+    })
+    expect(before.spans[0]).toEqual(expect.objectContaining({ categoryId: 2 }))
+
+    // The user edits the rule; the sticky Override for this exact time range still wins (ADR-0001).
+    const after = derive({
+      heartbeats,
+      categories,
+      rules: [rule({ id: 1, categoryId: 1, appPattern: 'Code', titlePattern: 'Anything' })],
+      overrides,
+      now: 1_000,
+    })
+    expect(after.spans[0]).toEqual(expect.objectContaining({ categoryId: 2 }))
+  })
+
+  it('does not affect spans outside its time range', () => {
+    const heartbeats = [
+      heartbeat({ appName: 'Code', startedAt: 0, endedAt: 1_000 }),
+      heartbeat({ appName: 'Slack', startedAt: 5_000, endedAt: 6_000 }),
+    ]
+    const categories = [category({ id: 1, name: 'Code', rating: 'focus' })]
+    const overrides = [override({ startedAt: 0, endedAt: 1_000, categoryId: 1 })]
+
+    const { spans } = derive({ heartbeats, categories, overrides, now: 6_000 })
+
+    expect(spans[1]).toEqual(
+      expect.objectContaining({ appName: 'Slack', categoryId: null, categoryName: 'Uncategorized', overrideId: null }),
+    )
+  })
+
+  it('overrides the project independently of the category', () => {
+    const heartbeats = [heartbeat({ appName: 'Figma', startedAt: 0, endedAt: 1_000 })]
+    const categories = [category({ id: 1, name: 'Design', rating: 'focus' })]
+    const projects = [
+      project({ id: 1, name: 'Acme Website', client: null }),
+      project({ id: 2, name: 'Personal', client: null }),
+    ]
+    const rules = [rule({ id: 1, categoryId: 1, projectId: 1, appPattern: 'Figma' })]
+    const overrides = [override({ startedAt: 0, endedAt: 1_000, categoryId: 1, projectId: 2 })]
+
+    const { spans } = derive({ heartbeats, categories, projects, rules, overrides, now: 1_000 })
+
+    expect(spans[0]).toEqual(expect.objectContaining({ projectId: 2, projectName: 'Personal' }))
+  })
+})
+
+describe('derive manual entries', () => {
+  it('inserts a manual entry as a span merged with derived spans', () => {
+    const categories = [category({ id: 1, name: 'Meetings', rating: 'neutral' })]
+    const entries = [manualEntry({ id: 7, startedAt: 10_000, endedAt: 13_000, label: 'Client call', categoryId: 1 })]
+
+    const { spans } = derive({ heartbeats: [], categories, manualEntries: entries, now: 13_000 })
+
+    expect(spans).toEqual([
+      expect.objectContaining({
+        startedAt: 10_000,
+        endedAt: 13_000,
+        appName: 'Client call',
+        categoryId: 1,
+        categoryName: 'Meetings',
+        manualEntryId: 7,
+        overrideId: null,
+      }),
+    ])
+  })
+
+  it('sorts a manual entry into position among derived spans', () => {
+    const heartbeats = [heartbeat({ appName: 'Code', startedAt: 0, endedAt: 1_000 })]
+    const categories = [category({ id: 1, name: 'Meetings', rating: 'neutral' })]
+    const entries = [manualEntry({ startedAt: 5_000, endedAt: 6_000, label: 'Call', categoryId: 1 })]
+
+    const { spans } = derive({ heartbeats, categories, manualEntries: entries, now: 6_000 })
+
+    expect(spans.map((s) => s.appName)).toEqual(['Code', 'Call'])
+  })
+
+  it('leaves manualEntryId null on heartbeat-derived spans', () => {
+    const heartbeats = [heartbeat({ appName: 'Code' })]
+
+    const { spans } = derive({ heartbeats, now: 1_000 })
+
+    expect(spans[0].manualEntryId).toBeNull()
+  })
+
+  it('attributes a manual entry to a project', () => {
+    const categories = [category({ id: 1, name: 'Meetings', rating: 'neutral' })]
+    const projects = [project({ id: 1, name: 'Acme Website', client: null })]
+    const entries = [manualEntry({ startedAt: 0, endedAt: 1_000, categoryId: 1, projectId: 1 })]
+
+    const { spans } = derive({ heartbeats: [], categories, projects, manualEntries: entries, now: 1_000 })
+
+    expect(spans[0]).toEqual(expect.objectContaining({ projectId: 1, projectName: 'Acme Website' }))
+  })
+})
+
+describe('derive discard', () => {
+  it('excludes a span overlapping a discarded time range', () => {
+    const heartbeats = [
+      heartbeat({ appName: 'Code', startedAt: 0, endedAt: 1_000 }),
+      heartbeat({ appName: 'Slack', startedAt: 2_000, endedAt: 3_000 }),
+    ]
+    const discardedSpans = [discardedSpan({ startedAt: 0, endedAt: 1_000 })]
+
+    const { spans } = derive({ heartbeats, discardedSpans, now: 3_000 })
+
+    expect(spans).toHaveLength(1)
+    expect(spans[0]).toEqual(expect.objectContaining({ appName: 'Slack' }))
+  })
+
+  it('does not touch the underlying heartbeats — discard only affects derived output', () => {
+    const heartbeats = [heartbeat({ appName: 'Code', startedAt: 0, endedAt: 1_000 })]
+    const discardedSpans = [discardedSpan({ startedAt: 0, endedAt: 1_000 })]
+
+    derive({ heartbeats, discardedSpans, now: 1_000 })
+
+    expect(heartbeats).toHaveLength(1)
+  })
+
+  it('discards a manual entry the same way as a derived span', () => {
+    const categories = [category({ id: 1, name: 'Meetings', rating: 'neutral' })]
+    const entries = [manualEntry({ startedAt: 0, endedAt: 1_000, categoryId: 1 })]
+    const discardedSpans = [discardedSpan({ startedAt: 0, endedAt: 1_000 })]
+
+    const { spans } = derive({ heartbeats: [], categories, manualEntries: entries, discardedSpans, now: 1_000 })
+
+    expect(spans).toEqual([])
+  })
+
+  it('does not exclude a span that merely abuts a discarded range', () => {
+    const heartbeats = [heartbeat({ appName: 'Code', startedAt: 1_000, endedAt: 2_000 })]
+    const discardedSpans = [discardedSpan({ startedAt: 0, endedAt: 1_000 })]
+
+    const { spans } = derive({ heartbeats, discardedSpans, now: 2_000 })
+
+    expect(spans).toHaveLength(1)
   })
 })

@@ -24,7 +24,10 @@ export interface Heartbeat {
  * ordered Rules layer (`categoryId`/`categoryName`/`rating` are the
  * Uncategorized default when no Rule matches) and, orthogonally, attributed
  * to a Project the same way (`projectId`/`projectName` are null when no
- * matching Rule assigns one). Overrides arrive with a later slice.
+ * matching Rule assigns one). A stored Override wins over the Rule result
+ * (`overrideId` identifies which one); a Manual Entry produces a Span with no
+ * underlying Heartbeat at all (`manualEntryId` identifies it, `overrideId`
+ * always null for one).
  */
 export interface Span {
   startedAt: number
@@ -38,6 +41,8 @@ export interface Span {
   rating: ProductivityRating
   projectId: number | null
   projectName: string | null
+  overrideId: number | null
+  manualEntryId: number | null
 }
 
 /** A single point-in-time poll result, before the tracker coalesces it into a Heartbeat. */

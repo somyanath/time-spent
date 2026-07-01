@@ -15,3 +15,11 @@ export const RULES_LIST_CHANNEL = 'rules:list'
 export const RULES_CREATE_CHANNEL = 'rules:create'
 export const RULES_DELETE_CHANNEL = 'rules:delete'
 export const RULES_REORDER_CHANNEL = 'rules:reorder'
+
+export const OVERRIDES_CREATE_CHANNEL = 'overrides:create'
+export const OVERRIDES_DELETE_CHANNEL = 'overrides:delete'
+
+export const MANUAL_ENTRIES_CREATE_CHANNEL = 'manualEntries:create'
+export const MANUAL_ENTRIES_DELETE_CHANNEL = 'manualEntries:delete'
+
+export const DISCARDED_SPANS_CREATE_CHANNEL = 'discardedSpans:create'

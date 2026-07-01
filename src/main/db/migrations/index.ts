@@ -5,6 +5,9 @@ import { createRules } from './004-create-rules'
 import { addDerivationVersion } from './005-add-derivation-version'
 import { createProjects } from './006-create-projects'
 import { addProjectIdToRules } from './007-add-project-id-to-rules'
+import { createOverrides } from './008-create-overrides'
+import { createManualEntries } from './009-create-manual-entries'
+import { createDiscardedSpans } from './010-create-discarded-spans'
 import type { Migration } from './types'
 
 /**
@@ -23,6 +26,9 @@ export const migrations: Migration[] = [
   addDerivationVersion,
   createProjects,
   addProjectIdToRules,
+  createOverrides,
+  createManualEntries,
+  createDiscardedSpans,
 ]
 
 export { runMigrations } from './runner'

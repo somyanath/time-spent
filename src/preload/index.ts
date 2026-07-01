@@ -5,6 +5,11 @@ import {
   CATEGORIES_DELETE_CHANNEL,
   CATEGORIES_LIST_CHANNEL,
   CATEGORIES_UPDATE_CHANNEL,
+  DISCARDED_SPANS_CREATE_CHANNEL,
+  MANUAL_ENTRIES_CREATE_CHANNEL,
+  MANUAL_ENTRIES_DELETE_CHANNEL,
+  OVERRIDES_CREATE_CHANNEL,
+  OVERRIDES_DELETE_CHANNEL,
   PROJECTS_CREATE_CHANNEL,
   PROJECTS_DELETE_CHANNEL,
   PROJECTS_LIST_CHANNEL,
@@ -40,6 +45,14 @@ const api: TimeTrackerApi = {
   createRule: (rule) => ipcRenderer.invoke(RULES_CREATE_CHANNEL, rule),
   deleteRule: (id) => ipcRenderer.invoke(RULES_DELETE_CHANNEL, id),
   reorderRules: (orderedIds) => ipcRenderer.invoke(RULES_REORDER_CHANNEL, orderedIds),
+
+  createOverride: (override) => ipcRenderer.invoke(OVERRIDES_CREATE_CHANNEL, override),
+  deleteOverride: (id) => ipcRenderer.invoke(OVERRIDES_DELETE_CHANNEL, id),
+
+  createManualEntry: (entry) => ipcRenderer.invoke(MANUAL_ENTRIES_CREATE_CHANNEL, entry),
+  deleteManualEntry: (id) => ipcRenderer.invoke(MANUAL_ENTRIES_DELETE_CHANNEL, id),
+
+  createDiscardedSpan: (span) => ipcRenderer.invoke(DISCARDED_SPANS_CREATE_CHANNEL, span),
 }
 
 contextBridge.exposeInMainWorld('timeTracker', api)

@@ -2,8 +2,11 @@ import Database from 'better-sqlite3'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { createCategory } from './categories'
 import { getOrComputeDailyRollup } from './dailyRollup'
+import { createDiscardedSpan } from './discardedSpans'
 import { insertHeartbeats } from './heartbeats'
+import { createManualEntry } from './manualEntries'
 import { migrations, runMigrations } from './migrations'
+import { createOverride } from './overrides'
 import { createProject } from './projects'
 import { createRule } from './rules'
 import type { Heartbeat } from '../../shared/heartbeat'
@@ -139,5 +142,37 @@ describe('getOrComputeDailyRollup', () => {
     const spans = getOrComputeDailyRollup(db, { dateKey: '2026-07-01', startMs: 0, endMs: 86_400_000, now: 3_000 })
 
     expect(spans).toEqual([expect.objectContaining({ projectId, projectName: 'Acme Website' })])
+  })
+
+  it('applies a stored Override over the current Rule for its span', () => {
+    const codeId = createCategory(db, 'Code', 'focus').id
+    const distractionId = createCategory(db, 'Distraction', 'distracting').id
+    createRule(db, { categoryId: codeId, appPattern: 'Code' })
+    insertHeartbeats(db, [heartbeat({ startedAt: 0, endedAt: 3_000, appName: 'Code' })])
+    createOverride(db, { startedAt: 0, endedAt: 3_000, categoryId: distractionId })
+
+    const spans = getOrComputeDailyRollup(db, { dateKey: '2026-07-01', startMs: 0, endMs: 86_400_000, now: 3_000 })
+
+    expect(spans).toEqual([expect.objectContaining({ categoryId: distractionId, rating: 'distracting' })])
+  })
+
+  it('merges a stored Manual Entry into the rollup', () => {
+    const categoryId = createCategory(db, 'Meetings', 'neutral').id
+    createManualEntry(db, { startedAt: 10_000, endedAt: 13_000, label: 'Offline standup', categoryId })
+
+    const spans = getOrComputeDailyRollup(db, { dateKey: '2026-07-01', startMs: 0, endMs: 86_400_000, now: 13_000 })
+
+    expect(spans).toEqual([
+      expect.objectContaining({ startedAt: 10_000, endedAt: 13_000, appName: 'Offline standup', categoryId }),
+    ])
+  })
+
+  it('excludes a Discarded span from the rollup', () => {
+    insertHeartbeats(db, [heartbeat({ startedAt: 0, endedAt: 3_000, appName: 'Code' })])
+    createDiscardedSpan(db, { startedAt: 0, endedAt: 3_000 })
+
+    const spans = getOrComputeDailyRollup(db, { dateKey: '2026-07-01', startMs: 0, endMs: 86_400_000, now: 3_000 })
+
+    expect(spans).toEqual([])
   })
 })

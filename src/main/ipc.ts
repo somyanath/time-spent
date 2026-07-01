@@ -2,16 +2,25 @@ import type Database from 'better-sqlite3'
 import { ipcMain } from 'electron'
 import { createCategory, deleteCategory, listCategories, updateCategory } from './db/categories'
 import { getOrComputeDailyRollup } from './db/dailyRollup'
+import { createDiscardedSpan } from './db/discardedSpans'
+import { createManualEntry, deleteManualEntry } from './db/manualEntries'
+import { createOverride, deleteOverride } from './db/overrides'
 import { createProject, deleteProject, listProjects, updateProject } from './db/projects'
 import { createRule, deleteRule, listRules, reorderRules } from './db/rules'
 import { getLocalDayRange } from './dayRange'
 import type { Category, ProductivityRating, Rule } from '../shared/category'
+import type { DiscardedSpan } from '../shared/discardedSpan'
 import type { Span } from '../shared/heartbeat'
 import {
   CATEGORIES_CREATE_CHANNEL,
   CATEGORIES_DELETE_CHANNEL,
   CATEGORIES_LIST_CHANNEL,
   CATEGORIES_UPDATE_CHANNEL,
+  DISCARDED_SPANS_CREATE_CHANNEL,
+  MANUAL_ENTRIES_CREATE_CHANNEL,
+  MANUAL_ENTRIES_DELETE_CHANNEL,
+  OVERRIDES_CREATE_CHANNEL,
+  OVERRIDES_DELETE_CHANNEL,
   PROJECTS_CREATE_CHANNEL,
   PROJECTS_DELETE_CHANNEL,
   PROJECTS_LIST_CHANNEL,
@@ -22,6 +31,8 @@ import {
   RULES_REORDER_CHANNEL,
   TODAY_GET_SPANS_CHANNEL,
 } from '../shared/ipcChannels'
+import type { ManualEntry } from '../shared/manualEntry'
+import type { Override } from '../shared/override'
 import type { Project } from '../shared/project'
 
 /** Registers the IPC channels the renderer's preload bridge invokes. */
@@ -71,4 +82,27 @@ export function registerIpcHandlers(db: Database.Database): void {
   )
   ipcMain.handle(RULES_DELETE_CHANNEL, (_event, id: number): void => deleteRule(db, id))
   ipcMain.handle(RULES_REORDER_CHANNEL, (_event, orderedIds: number[]): void => reorderRules(db, orderedIds))
+
+  ipcMain.handle(
+    OVERRIDES_CREATE_CHANNEL,
+    (
+      _event,
+      override: { startedAt: number; endedAt: number; categoryId: number; projectId?: number | null },
+    ): Override => createOverride(db, override),
+  )
+  ipcMain.handle(OVERRIDES_DELETE_CHANNEL, (_event, id: number): void => deleteOverride(db, id))
+
+  ipcMain.handle(
+    MANUAL_ENTRIES_CREATE_CHANNEL,
+    (
+      _event,
+      entry: { startedAt: number; endedAt: number; label: string; categoryId: number; projectId?: number | null },
+    ): ManualEntry => createManualEntry(db, entry),
+  )
+  ipcMain.handle(MANUAL_ENTRIES_DELETE_CHANNEL, (_event, id: number): void => deleteManualEntry(db, id))
+
+  ipcMain.handle(
+    DISCARDED_SPANS_CREATE_CHANNEL,
+    (_event, span: { startedAt: number; endedAt: number }): DiscardedSpan => createDiscardedSpan(db, span),
+  )
 }
