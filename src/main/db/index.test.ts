@@ -23,9 +23,8 @@ describe('openDatabase', () => {
 
     expect(db.open).toBe(true)
     expect(db.pragma('journal_mode', { simple: true })).toBe('wal')
-    // Slice 1 ships an empty schema, so nothing is applied yet.
-    expect(migration.appliedVersions).toEqual([])
-    expect(migration.currentVersion).toBe(0)
+    expect(migration.appliedVersions).toEqual([1, 2])
+    expect(migration.currentVersion).toBe(2)
     db.close()
   })
 

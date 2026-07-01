@@ -1,0 +1,28 @@
+import { describe, expect, it } from 'vitest'
+import { getLocalDayRange } from './dayRange'
+
+describe('getLocalDayRange', () => {
+  it('returns a half-open range spanning midnight to midnight', () => {
+    const noon = new Date(2026, 6, 1, 12, 30, 0).getTime()
+
+    const { dateKey, startMs, endMs } = getLocalDayRange(noon)
+
+    expect(dateKey).toBe('2026-07-01')
+    expect(startMs).toBe(new Date(2026, 6, 1, 0, 0, 0, 0).getTime())
+    expect(endMs).toBe(new Date(2026, 6, 2, 0, 0, 0, 0).getTime())
+  })
+
+  it('pads single-digit months and days', () => {
+    const { dateKey } = getLocalDayRange(new Date(2026, 0, 5, 9, 0, 0).getTime())
+
+    expect(dateKey).toBe('2026-01-05')
+  })
+
+  it('treats a moment just before midnight as the earlier day', () => {
+    const justBeforeMidnight = new Date(2026, 6, 1, 23, 59, 59, 999).getTime()
+
+    const { dateKey } = getLocalDayRange(justBeforeMidnight)
+
+    expect(dateKey).toBe('2026-07-01')
+  })
+})

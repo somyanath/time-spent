@@ -23,6 +23,7 @@
     "sandcastle": "npx tsx .sandcastle/main.mts"
   },
   "dependencies": {
+    "@rize-io/active-win": "7.5.1",
     "better-sqlite3": "^11.10.0"
   },
   "pnpm": {

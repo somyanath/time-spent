@@ -2,6 +2,9 @@ import { join } from 'node:path'
 import type BetterSqlite3 from 'better-sqlite3'
 import { app } from 'electron'
 import { openDatabase } from './db'
+import { registerIpcHandlers } from './ipc'
+import { startTracking } from './tracker'
+import type { TrackingController } from './tracker'
 import { createTray } from './tray'
 
 // Stable app identity → a stable `~/Library/Application Support/<app>/` folder
@@ -10,6 +13,7 @@ import { createTray } from './tray'
 app.setName('time-tracker')
 
 let db: BetterSqlite3.Database | null = null
+let tracking: TrackingController | null = null
 
 // As a menu-bar agent the app has no windows for long stretches. Closing the
 // dashboard must not quit it — the tray is home; quit happens from the tray.
@@ -33,11 +37,17 @@ app.whenReady().then(() => {
     : ' (no pending migrations)'
   console.log(`[db] opened ${dbPath} — schema v${currentVersion}${appliedNote}`)
 
+  registerIpcHandlers(db)
+  tracking = startTracking(db)
+  console.log('[tracker] passive tracking started')
+
   createTray()
   console.log('[tray] menu-bar agent ready')
 })
 
 app.on('before-quit', () => {
+  tracking?.stop()
+  tracking = null
   db?.close()
   db = null
 })

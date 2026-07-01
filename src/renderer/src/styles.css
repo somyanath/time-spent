@@ -155,6 +155,35 @@ body {
   max-width: 420px;
 }
 
+.today__timeline {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+}
+
+.today__timeline-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  background: var(--surface);
+  padding: 12px 16px;
+}
+
+.today__timeline-app {
+  font-weight: 500;
+}
+
+.today__timeline-time {
+  color: var(--text-dim);
+  font-size: 13px;
+}
+
 .today__footer {
   margin-top: 32px;
   text-align: center;

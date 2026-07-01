@@ -1,15 +1,16 @@
+import { createHeartbeats } from './001-create-heartbeats'
+import { createDailyRollup } from './002-create-daily-rollup'
 import type { Migration } from './types'
 
 /**
  * The ordered list of schema migrations the app applies on startup.
  *
- * Slice 1 (the walking skeleton) ships an intentionally empty schema: per
- * ADR-0001 the only durable truth is the append-only `heartbeats` stream, and
- * tables arrive with the slices that first need them (heartbeats persistence,
- * the derived-on-read rollup cache, etc.). Add migrations here — never edit an
+ * Per ADR-0001 the only durable truth is the append-only `heartbeats` stream;
+ * everything else (the daily rollup cache, categories, rules, ...) is a cache
+ * or a later slice's addition. Add migrations here — never edit an
  * already-released one — with strictly increasing, unique `version` numbers.
  */
-export const migrations: Migration[] = []
+export const migrations: Migration[] = [createHeartbeats, createDailyRollup]
 
 export { runMigrations } from './runner'
 export type { Migration, MigrationResult } from './types'

@@ -1,8 +1,10 @@
+import { useEffect, useState } from 'react'
+import type { Span } from '../../shared/heartbeat'
+
 /**
- * The Today surface — the daily review home. Slice 1 is the walking skeleton,
- * so it renders an intentional empty state: no heartbeats are being collected
- * yet, so there is nothing to summarise. The Focus Quality Score, category
- * split, focus-vs-target and editable timeline land in later slices.
+ * The Today surface — the daily review home. This slice renders the raw,
+ * uncategorized timeline of derived Spans; categorization, the Focus Quality
+ * Score, and editable entries arrive with later slices.
  */
 export function Today(): JSX.Element {
   const today = new Date().toLocaleDateString(undefined, {
@@ -10,6 +12,23 @@ export function Today(): JSX.Element {
     month: 'long',
     day: 'numeric',
   })
+
+  const [spans, setSpans] = useState<Span[] | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+
+    const api = typeof window !== 'undefined' ? window.timeTracker : undefined
+    if (!api) return
+
+    api.getTodaySpans().then((result) => {
+      if (!cancelled) setSpans(result)
+    })
+
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   const versions = typeof window !== 'undefined' ? window.timeTracker?.versions : undefined
 
@@ -22,15 +41,27 @@ export function Today(): JSX.Element {
         <p className="today__date">{today}</p>
       </header>
 
-      <div className="today__empty" role="status">
-        <div className="today__empty-glyph" aria-hidden="true" />
-        <h2 className="today__empty-title">Nothing tracked yet</h2>
-        <p className="today__empty-body">
-          Tracking isn&rsquo;t running in this build. Once heartbeats start
-          flowing, your Focus Quality Score, category split, and timeline will
-          appear here.
-        </p>
-      </div>
+      {spans && spans.length > 0 ? (
+        <ol className="today__timeline" aria-label="Today's timeline">
+          {spans.map((span) => (
+            <li key={`${span.startedAt}-${span.appName}`} className="today__timeline-item">
+              <span className="today__timeline-app">{span.appName}</span>
+              <span className="today__timeline-time">
+                {formatTime(span.startedAt)} – {formatTime(span.endedAt)}
+              </span>
+            </li>
+          ))}
+        </ol>
+      ) : (
+        <div className="today__empty" role="status">
+          <div className="today__empty-glyph" aria-hidden="true" />
+          <h2 className="today__empty-title">Nothing tracked yet</h2>
+          <p className="today__empty-body">
+            Once heartbeats start flowing, your Focus Quality Score, category
+            split, and timeline will appear here.
+          </p>
+        </div>
+      )}
 
       {versions && (
         <footer className="today__footer">
@@ -40,4 +71,8 @@ export function Today(): JSX.Element {
       )}
     </section>
   )
+}
+
+function formatTime(ms: number): string {
+  return new Date(ms).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })
 }
