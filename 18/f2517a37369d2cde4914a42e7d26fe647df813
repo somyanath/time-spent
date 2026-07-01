@@ -1,0 +1,45 @@
+package.json
+  s_d6f85ec8870900::t_005562287d5031 8
+  s_d6f85ec8870900::t_9b865c282b52b6 22-23
+  s_d6f85ec8870900::t_8bf0195813a68d 36
+.sandcastle/main.mts
+  s_d6f85ec8870900::t_1c4a11613f0ce5 1-17,19-34,41-45,50-52
+  h_baa31403498e0f 18
+  s_d6f85ec8870900::t_3d2c9715d4e091 35-40,46-49
+.sandcastle/.gitignore
+  s_d6f85ec8870900::t_1c4a11613f0ce5 1-3
+.sandcastle/.env.example
+  s_d6f85ec8870900::t_1c4a11613f0ce5 1-9
+.sandcastle/prompt.md
+  s_d6f85ec8870900::t_1c4a11613f0ce5 1-32,34-43,45-54
+  s_d6f85ec8870900::t_cf9e9e6c913e02 44
+  s_d6f85ec8870900::t_0536752da1e514 33
+.sandcastle/Dockerfile
+  s_d6f85ec8870900::t_a311717d99b22d 24
+  s_d6f85ec8870900::t_1c4a11613f0ce5 1-17,25-34,39-50
+  s_d6f85ec8870900::t_cd599f995a6eb2 35-38
+  s_d6f85ec8870900::t_d940f874948f41 18-23
+pnpm-lock.yaml
+  s_d6f85ec8870900::t_419f4f2b8599a6 15-17,66-77,167-174,1158-1166,1892-1894,2191-2194,2312-2323,3420-3429,4213-4214
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.8",
+  "base_commit_sha": "18f2517a37369d2cde4914a42e7d26fe647df813",
+  "prompts": {},
+  "humans": {
+    "h_baa31403498e0f": {
+      "author": "Somyanath_Mohanty <mohantysomyanath@gmail.com>"
+    }
+  },
+  "sessions": {
+    "s_d6f85ec8870900": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "19fffe8e-ad8b-4d03-91c2-cf80dd68bb70",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Somyanath_Mohanty <mohantysomyanath@gmail.com>"
+    }
+  }
+}
