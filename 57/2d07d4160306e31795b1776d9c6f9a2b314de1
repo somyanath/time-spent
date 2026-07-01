@@ -1,0 +1,87 @@
+src/main/window.ts
+  s_c1e109787ecca5::t_baaef483d4a068 1-5,16-40,42-47,50,54,67-81
+  s_c1e109787ecca5::t_6dddf99125c568 6-15
+  s_c1e109787ecca5::t_f4c51ca3a4ffc0 41,48-49,51-53,55-66
+package.json
+  s_c1e109787ecca5::t_d883b24a9a0f96 20
+  s_c1e109787ecca5::t_47334a256b1603 13
+  s_c1e109787ecca5::t_74154a6d7ed0d2 26-32
+  s_c1e109787ecca5::t_e108d2fb4989bd 1-12,14-19,21-25,33-40,42-49
+  s_c1e109787ecca5::t_3f16ea5c639faf 41
+tsconfig.node.json
+  s_c1e109787ecca5::t_a1df2cc0819080 1-28
+electron.vite.config.ts
+  s_c1e109787ecca5::t_a8420711416c19 1-33
+src/main/index.ts
+  s_c1e109787ecca5::t_c0f2b3ed60e84c 1-43
+src/renderer/index.html
+  s_c1e109787ecca5::t_db023d49897971 9
+  s_c1e109787ecca5::t_f267c063a2acea 1-8,10-17
+src/renderer/src/main.tsx
+  s_c1e109787ecca5::t_e0df7de51383e6 1-15
+src/renderer/src/App.tsx
+  s_c1e109787ecca5::t_4259a5400480d9 1-29
+src/renderer/src/Today.tsx
+  s_c1e109787ecca5::t_7dff7893dc0efd 1-43
+src/renderer/src/styles.css
+  s_c1e109787ecca5::t_b2b7bed73cfe4b 1-164
+README.md
+  s_c1e109787ecca5::t_f6fc0e5041d3c7 58
+  s_c1e109787ecca5::t_9e46f11d90c8a3 1-11,14-57,59
+  s_c1e109787ecca5::t_e2d3886a30175b 12-13
+vitest.config.ts
+  s_c1e109787ecca5::t_7fe8608d0aebf4 1-12
+electron-builder.yml
+  s_c1e109787ecca5::t_dc171e6ab0c643 1-28
+tsconfig.web.json
+  s_c1e109787ecca5::t_17898b25f0d3ac 1-7,9-26
+  s_c1e109787ecca5::t_e0ed997b5fa824 8
+src/renderer/src/env.d.ts
+  s_c1e109787ecca5::t_510021081d06fa 1-6,13-16
+  s_c1e109787ecca5::t_c751dd964f2dfa 7-12
+src/main/db/migrations/runner.ts
+  s_c1e109787ecca5::t_3f80e67c4e9d77 1-56
+src/preload/index.ts
+  s_c1e109787ecca5::t_888506eea3a2e0 1-15
+src/main/db/index.ts
+  s_c1e109787ecca5::t_1ae7b75bc93063 1-30
+src/main/db/migrations/index.ts
+  s_c1e109787ecca5::t_dda747cf553938 1-15
+scripts/gen-tray-icon.mjs
+  s_c1e109787ecca5::t_a879d9fee42e8e 1-124
+src/shared/api.ts
+  s_c1e109787ecca5::t_62e29fa044318c 1-16
+tsconfig.json
+  s_c1e109787ecca5::t_a2e42371596a0a 1-7
+src/main/db/migrations/runner.test.ts
+  s_c1e109787ecca5::t_4c592e1dc0f790 1-115
+src/main/db/migrations/types.ts
+  s_c1e109787ecca5::t_75d8c5a8bbcda8 1-25
+src/main/db/index.test.ts
+  s_c1e109787ecca5::t_8de71bcd1b2445 1-48
+src/main/tray.ts
+  s_c1e109787ecca5::t_b4127107fe890a 1-29
+pnpm-lock.yaml
+  s_c1e109787ecca5::t_caaa8819fe9676 1-4453
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.8",
+  "base_commit_sha": "572d07d4160306e31795b1776d9c6f9a2b314de1",
+  "prompts": {},
+  "humans": {
+    "h_baa31403498e0f": {
+      "author": "Somyanath_Mohanty <mohantysomyanath@gmail.com>"
+    }
+  },
+  "sessions": {
+    "s_c1e109787ecca5": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "428275b4-cae7-46b9-b573-0015a3c519e0",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Somyanath_Mohanty <mohantysomyanath@gmail.com>"
+    }
+  }
+}
