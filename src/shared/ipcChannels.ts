@@ -1,5 +1,6 @@
 /** IPC channel names shared between the main-process handlers and the preload bridge. */
 export const TODAY_GET_SPANS_CHANNEL = 'today:getSpans'
+export const TODAY_GET_FOCUS_QUALITY_CHANNEL = 'today:getFocusQuality'
 
 export const CATEGORIES_LIST_CHANNEL = 'categories:list'
 export const CATEGORIES_CREATE_CHANNEL = 'categories:create'

@@ -1,15 +1,17 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { FormEvent } from 'react'
 import type { Category } from '../../shared/category'
+import type { FocusQualityScoreBreakdown } from '../../shared/derive'
 import type { Span } from '../../shared/heartbeat'
 import type { Project } from '../../shared/project'
 
 /**
- * The Today surface — the daily review home. Renders the category-colored
- * timeline of derived Spans plus a category split summary (#18), and lets
- * the user correct the day inline (#20): Override a span's Category/Project,
- * Discard a falsely-tracked span, or add a Manual Entry for time the tracker
- * couldn't observe. The Focus Quality Score arrives with a later slice.
+ * The Today surface — the daily review home. Renders the Focus Quality Score
+ * with its component breakdown (#25), the category-colored timeline of
+ * derived Spans plus a category split summary (#18), and lets the user
+ * correct the day inline (#20): Override a span's Category/Project, Discard
+ * a falsely-tracked span, or add a Manual Entry for time the tracker
+ * couldn't observe.
  */
 export function Today(): JSX.Element {
   const today = new Date().toLocaleDateString(undefined, {
@@ -23,17 +25,22 @@ export function Today(): JSX.Element {
   const [spans, setSpans] = useState<Span[] | null>(null)
   const [categories, setCategories] = useState<Category[]>([])
   const [projects, setProjects] = useState<Project[]>([])
+  const [focusQuality, setFocusQuality] = useState<{ score: number; breakdown: FocusQualityScoreBreakdown } | null>(
+    null,
+  )
 
   async function refresh(): Promise<void> {
     if (!api) return
-    const [nextSpans, nextCategories, nextProjects] = await Promise.all([
+    const [nextSpans, nextCategories, nextProjects, nextFocusQuality] = await Promise.all([
       api.getTodaySpans(),
       api.listCategories(),
       api.listProjects(),
+      api.getTodayFocusQuality(),
     ])
     setSpans(nextSpans)
     setCategories(nextCategories)
     setProjects(nextProjects)
+    setFocusQuality(nextFocusQuality)
   }
 
   useEffect(() => {
@@ -52,6 +59,17 @@ export function Today(): JSX.Element {
         </h1>
         <p className="today__date">{today}</p>
       </header>
+
+      {focusQuality && (
+        <section className="today__focus-quality" aria-label="Focus Quality Score">
+          <div className="today__focus-quality-number">{focusQuality.score}</div>
+          <ul className="today__focus-quality-breakdown">
+            <li>Focus ratio: {formatPercent(focusQuality.breakdown.focusRatio)}</li>
+            <li>Distraction penalty: {formatPercent(focusQuality.breakdown.distractionPenalty)}</li>
+            <li>Focus continuity: {formatPercent(focusQuality.breakdown.focusContinuity)}</li>
+          </ul>
+        </section>
+      )}
 
       {spans && spans.length > 0 ? (
         <>
@@ -351,6 +369,10 @@ function summarizeCategorySplit(spans: readonly Span[]): CategorySplitEntry[] {
   }
 
   return [...byCategory.values()].sort((a, b) => b.durationMs - a.durationMs)
+}
+
+function formatPercent(ratio: number): string {
+  return `${Math.round(ratio * 100)}%`
 }
 
 function formatDuration(ms: number): string {

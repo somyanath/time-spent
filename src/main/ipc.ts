@@ -3,6 +3,8 @@ import { ipcMain } from 'electron'
 import { createCategory, deleteCategory, listCategories, updateCategory } from './db/categories'
 import { getOrComputeDailyRollup } from './db/dailyRollup'
 import { createDiscardedSpan } from './db/discardedSpans'
+import { getFocusQuality } from './db/focusQuality'
+import type { FocusQualityResult } from './db/focusQuality'
 import { getRecentHeartbeats } from './db/heartbeats'
 import { createManualEntry, deleteManualEntry } from './db/manualEntries'
 import { createOverride, deleteOverride } from './db/overrides'
@@ -44,6 +46,7 @@ import {
   RULES_REORDER_CHANNEL,
   SETTINGS_GET_CHANNEL,
   SETTINGS_SET_APP_LEVEL_ONLY_CHANNEL,
+  TODAY_GET_FOCUS_QUALITY_CHANNEL,
   TODAY_GET_SPANS_CHANNEL,
   WORK_MODE_CLEAR_OVERRIDE_CHANNEL,
   WORK_MODE_GET_STATE_CHANNEL,
@@ -66,6 +69,12 @@ export function registerIpcHandlers(db: Database.Database): void {
     const now = Date.now()
     const { dateKey, startMs, endMs } = getLocalDayRange(now)
     return getOrComputeDailyRollup(db, { dateKey, startMs, endMs, now })
+  })
+
+  ipcMain.handle(TODAY_GET_FOCUS_QUALITY_CHANNEL, (): FocusQualityResult => {
+    const now = Date.now()
+    const { startMs, endMs } = getLocalDayRange(now)
+    return getFocusQuality(db, { startMs, endMs, now })
   })
 
   ipcMain.handle(CATEGORIES_LIST_CHANNEL, (): Category[] => listCategories(db))

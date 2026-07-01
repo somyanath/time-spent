@@ -112,6 +112,34 @@ body {
   font-size: 14px;
 }
 
+.today__focus-quality {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 16px 20px;
+  margin-bottom: 24px;
+}
+
+.today__focus-quality-number {
+  font-size: 40px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.today__focus-quality-breakdown {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  color: var(--text-dim);
+  font-size: 13px;
+}
+
 .today__empty {
   border: 1px dashed var(--border);
   border-radius: 16px;

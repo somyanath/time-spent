@@ -23,6 +23,7 @@ import {
   RULES_REORDER_CHANNEL,
   SETTINGS_GET_CHANNEL,
   SETTINGS_SET_APP_LEVEL_ONLY_CHANNEL,
+  TODAY_GET_FOCUS_QUALITY_CHANNEL,
   TODAY_GET_SPANS_CHANNEL,
   WORK_MODE_CLEAR_OVERRIDE_CHANNEL,
   WORK_MODE_GET_STATE_CHANNEL,
@@ -40,6 +41,7 @@ const api: TimeTrackerApi = {
     node: process.versions.node ?? 'unknown',
   },
   getTodaySpans: () => ipcRenderer.invoke(TODAY_GET_SPANS_CHANNEL),
+  getTodayFocusQuality: () => ipcRenderer.invoke(TODAY_GET_FOCUS_QUALITY_CHANNEL),
 
   listCategories: () => ipcRenderer.invoke(CATEGORIES_LIST_CHANNEL),
   createCategory: (name, rating) => ipcRenderer.invoke(CATEGORIES_CREATE_CHANNEL, name, rating),

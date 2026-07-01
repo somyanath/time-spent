@@ -1,5 +1,6 @@
 import type { Category, ProductivityRating, Rule } from './category'
 import type { DiscardedSpan } from './discardedSpan'
+import type { FocusQualityScoreBreakdown } from './derive'
 import type { Span } from './heartbeat'
 import type { ManualEntry } from './manualEntry'
 import type { Override } from './override'
@@ -20,6 +21,8 @@ export interface TimeTrackerApi {
   }
   /** Today's derived Spans, via the daily rollup cache. */
   getTodaySpans: () => Promise<Span[]>
+  /** Today's Focus Quality Score (#25): 0–100, work-hours-scoped, with its three-component breakdown. */
+  getTodayFocusQuality: () => Promise<{ score: number; breakdown: FocusQualityScoreBreakdown }>
 
   listCategories: () => Promise<Category[]>
   createCategory: (name: string, rating: ProductivityRating) => Promise<Category>

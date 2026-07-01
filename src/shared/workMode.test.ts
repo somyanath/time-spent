@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { computeWorkModeState } from './workMode'
+import { computeWorkModeState, workingHoursOverlapMs } from './workMode'
 import type { WorkingHoursSchedule } from './workMode'
 
 // Mon Jan 5 2026 09:00 local time, and neighboring instants, used throughout.
@@ -100,5 +100,40 @@ describe('computeWorkModeState', () => {
     const state = computeWorkModeState({}, override, at(20, 9))
     expect(state.isOn).toBe(true)
     expect(state.overridden).toBe(true)
+  })
+})
+
+describe('workingHoursOverlapMs', () => {
+  it('is 0 against an entirely empty schedule', () => {
+    expect(workingHoursOverlapMs(at(5, 9), at(5, 17), {})).toBe(0)
+  })
+
+  it('counts the full interval when it sits entirely inside a range', () => {
+    const schedule: WorkingHoursSchedule = { [MONDAY]: [{ startMinute: 9 * 60, endMinute: 17 * 60 }] }
+
+    expect(workingHoursOverlapMs(at(5, 10), at(5, 11), schedule)).toBe(60 * 60_000)
+  })
+
+  it('counts 0 when the interval sits entirely outside every range', () => {
+    const schedule: WorkingHoursSchedule = { [MONDAY]: [{ startMinute: 9 * 60, endMinute: 17 * 60 }] }
+
+    expect(workingHoursOverlapMs(at(5, 18), at(5, 19), schedule)).toBe(0)
+  })
+
+  it('clips a partially-overlapping interval to just the in-range portion', () => {
+    const schedule: WorkingHoursSchedule = { [MONDAY]: [{ startMinute: 9 * 60, endMinute: 17 * 60 }] }
+
+    // 16:30-17:30 only overlaps the 9:00-17:00 range for its first 30 minutes.
+    expect(workingHoursOverlapMs(at(5, 16, 30), at(5, 17, 30), schedule)).toBe(30 * 60_000)
+  })
+
+  it('sums overlap across a schedule spanning midnight into the next day', () => {
+    const schedule: WorkingHoursSchedule = {
+      [MONDAY]: [{ startMinute: 9 * 60, endMinute: 17 * 60 }],
+      2: [{ startMinute: 9 * 60, endMinute: 17 * 60 }],
+    }
+
+    // Monday 23:00 through Tuesday 10:00 only overlaps Tuesday's 9:00-10:00 hour.
+    expect(workingHoursOverlapMs(at(5, 23), at(6, 10), schedule)).toBe(60 * 60_000)
   })
 })

@@ -58,6 +58,37 @@ function scheduleIsOn(schedule: WorkingHoursSchedule, at: number): boolean {
   return ranges.some((range) => minuteOfDay >= range.startMinute && minuteOfDay < range.endMinute)
 }
 
+/**
+ * Total milliseconds of `[startedAt, endedAt)` that fall inside the
+ * schedule's Working Hours ranges. Ranges are minutes since each day's local
+ * midnight, so an interval spanning multiple days is clipped day by day.
+ * Used to work-hours-scope judgment metrics (e.g. the Focus Quality Score,
+ * #25) without gating tracking itself.
+ */
+export function workingHoursOverlapMs(startedAt: number, endedAt: number, schedule: WorkingHoursSchedule): number {
+  let total = 0
+  let cursor = startedAt
+
+  while (cursor < endedAt) {
+    const dayStart = new Date(cursor)
+    dayStart.setHours(0, 0, 0, 0)
+    const dayStartMs = dayStart.getTime()
+    const dayEndMs = dayStartMs + MINUTES_PER_DAY * 60_000
+    const segmentEnd = Math.min(endedAt, dayEndMs)
+    const ranges = schedule[dayStart.getDay()] ?? []
+
+    for (const range of ranges) {
+      const overlapStart = Math.max(cursor, dayStartMs + range.startMinute * 60_000)
+      const overlapEnd = Math.min(segmentEnd, dayStartMs + range.endMinute * 60_000)
+      if (overlapEnd > overlapStart) total += overlapEnd - overlapStart
+    }
+
+    cursor = segmentEnd
+  }
+
+  return total
+}
+
 /** The next timestamp after `at` where a range boundary falls, searching forward up to a full week. */
 function nextBoundaryAfter(schedule: WorkingHoursSchedule, at: number): number | null {
   const dayStart = new Date(at)

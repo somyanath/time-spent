@@ -675,3 +675,166 @@ describe('derive focus sessions', () => {
     expect(workModeState.overridden).toBe(true)
   })
 })
+
+describe('derive Focus Quality Score', () => {
+  const focusCategory = category({ id: 1, name: 'Code', rating: 'focus' })
+  const neutralCategory = category({ id: 2, name: 'Email', rating: 'neutral' })
+  const distractingCategory = category({ id: 3, name: 'Social Media', rating: 'distracting' })
+  const categories = [focusCategory, neutralCategory, distractingCategory]
+  const rules = [
+    rule({ id: 1, categoryId: 1, appPattern: 'Code' }),
+    rule({ id: 2, categoryId: 2, appPattern: 'Email', position: 1 }),
+    rule({ id: 3, categoryId: 3, appPattern: 'Twitter', position: 2 }),
+  ]
+  // Work Mode gates the score (like every other judgment feature), so tests
+  // that aren't specifically about the work-hours boundary open every day
+  // around the clock.
+  const ALL_DAY_RANGE = [{ startMinute: 0, endMinute: 24 * 60 }]
+  const ALL_DAY_WORKING_HOURS = Object.fromEntries([0, 1, 2, 3, 4, 5, 6].map((day) => [day, ALL_DAY_RANGE]))
+
+  it('is 0 with a zeroed breakdown when there is no active time', () => {
+    const { focusQualityScore, focusQualityBreakdown } = derive({ heartbeats: [], now: 0 })
+
+    expect(focusQualityScore).toBe(0)
+    expect(focusQualityBreakdown).toEqual({ focusRatio: 0, distractionPenalty: 0, focusContinuity: 0 })
+  })
+
+  it('raises the score as the focus ratio rises, holding distraction and continuity fixed', () => {
+    // A single continuous block, all-Focus vs. half-Focus/half-Neutral —
+    // neither forms a real Focus Session distinction since both are pure
+    // ratings throughout, isolating the ratio's own contribution.
+    const mostlyFocus = derive({
+      heartbeats: [heartbeat({ appName: 'Code', startedAt: 0, endedAt: 20 * MIN })],
+      categories,
+      rules,
+      workingHours: ALL_DAY_WORKING_HOURS,
+      now: 20 * MIN,
+    })
+    const halfFocus = derive({
+      heartbeats: [
+        heartbeat({ appName: 'Code', startedAt: 0, endedAt: 10 * MIN }),
+        heartbeat({ appName: 'Email', startedAt: 10 * MIN, endedAt: 20 * MIN }),
+      ],
+      categories,
+      rules,
+      workingHours: ALL_DAY_WORKING_HOURS,
+      now: 20 * MIN,
+    })
+
+    expect(mostlyFocus.focusQualityBreakdown.focusRatio).toBe(1)
+    expect(halfFocus.focusQualityBreakdown.focusRatio).toBe(0.5)
+    expect(mostlyFocus.focusQualityScore).toBeGreaterThan(halfFocus.focusQualityScore)
+  })
+
+  it('lowers the score as the distraction penalty rises, holding the focus ratio fixed', () => {
+    const noDistraction = derive({
+      heartbeats: [
+        heartbeat({ appName: 'Code', startedAt: 0, endedAt: 10 * MIN }),
+        heartbeat({ appName: 'Email', startedAt: 10 * MIN, endedAt: 20 * MIN }),
+      ],
+      categories,
+      rules,
+      workingHours: ALL_DAY_WORKING_HOURS,
+      now: 20 * MIN,
+    })
+    const withDistraction = derive({
+      heartbeats: [
+        heartbeat({ appName: 'Code', startedAt: 0, endedAt: 10 * MIN }),
+        heartbeat({ appName: 'Twitter', startedAt: 10 * MIN, endedAt: 20 * MIN }),
+      ],
+      categories,
+      rules,
+      workingHours: ALL_DAY_WORKING_HOURS,
+      now: 20 * MIN,
+    })
+
+    expect(noDistraction.focusQualityBreakdown.focusRatio).toBe(withDistraction.focusQualityBreakdown.focusRatio)
+    expect(noDistraction.focusQualityBreakdown.distractionPenalty).toBe(0)
+    expect(withDistraction.focusQualityBreakdown.distractionPenalty).toBe(0.5)
+    expect(withDistraction.focusQualityScore).toBeLessThan(noDistraction.focusQualityScore)
+  })
+
+  it('raises the score as focus continuity rises, holding ratio and distraction penalty fixed', () => {
+    // Both scenarios spend 15 focus-minutes and 10 neutral-minutes (ratio
+    // 0.6, no distraction) over 25 minutes. Continuous: one 15-min Focus
+    // block then Neutral — the rolling window hits 100% purity and a Focus
+    // Session forms, capturing all 15 focus-minutes. Fragmented: alternating
+    // 3-min Focus / 2-min Neutral blocks hold a steady 60% rolling purity —
+    // always under the 75% threshold, so no Focus Session ever forms.
+    const continuous = derive({
+      heartbeats: [
+        heartbeat({ appName: 'Code', startedAt: 0, endedAt: 15 * MIN }),
+        heartbeat({ appName: 'Email', startedAt: 15 * MIN, endedAt: 25 * MIN }),
+      ],
+      categories,
+      rules,
+      workingHours: ALL_DAY_WORKING_HOURS,
+      now: 25 * MIN,
+    })
+
+    const fragmentedHeartbeats: Heartbeat[] = []
+    for (let unit = 0; unit < 5; unit++) {
+      const unitStart = unit * 5 * MIN
+      fragmentedHeartbeats.push(heartbeat({ appName: 'Code', startedAt: unitStart, endedAt: unitStart + 3 * MIN }))
+      fragmentedHeartbeats.push(
+        heartbeat({ appName: 'Email', startedAt: unitStart + 3 * MIN, endedAt: unitStart + 5 * MIN }),
+      )
+    }
+    const fragmented = derive({ heartbeats: fragmentedHeartbeats, categories, rules, workingHours: ALL_DAY_WORKING_HOURS, now: 25 * MIN })
+
+    expect(continuous.focusQualityBreakdown.focusRatio).toBe(0.6)
+    expect(fragmented.focusQualityBreakdown.focusRatio).toBe(0.6)
+    expect(continuous.focusQualityBreakdown.distractionPenalty).toBe(0)
+    expect(fragmented.focusQualityBreakdown.distractionPenalty).toBe(0)
+
+    expect(continuous.focusQualityBreakdown.focusContinuity).toBe(1)
+    expect(fragmented.focusQualityBreakdown.focusContinuity).toBe(0)
+    expect(continuous.focusQualityScore).toBe(80)
+    expect(fragmented.focusQualityScore).toBe(60)
+  })
+
+  it('does not penalize a switch-heavy-but-focused day — continuity matches a single-app equivalent', () => {
+    const singleApp = derive({
+      heartbeats: [heartbeat({ appName: 'Code', startedAt: 0, endedAt: 45 * MIN })],
+      categories,
+      rules,
+      workingHours: ALL_DAY_WORKING_HOURS,
+      now: 45 * MIN,
+    })
+    // Three 15-minute blocks (45 min total), alternating window identity, all Focus-rated.
+    const switchHeavy = derive({
+      heartbeats: Array.from({ length: 3 }, (_, i) =>
+        heartbeat({ appName: 'Code', windowTitle: `File ${i}`, startedAt: i * 15 * MIN, endedAt: (i + 1) * 15 * MIN }),
+      ),
+      categories,
+      rules,
+      workingHours: ALL_DAY_WORKING_HOURS,
+      now: 45 * MIN,
+    })
+
+    expect(switchHeavy.focusQualityBreakdown).toEqual(singleApp.focusQualityBreakdown)
+    expect(switchHeavy.focusQualityScore).toBe(singleApp.focusQualityScore)
+  })
+
+  it('scopes the score to Work Mode hours, excluding activity outside them', () => {
+    // Mon Jan 5 2026 is a Monday; Working Hours are 9:00-17:00.
+    const workingHours = { 1: [{ startMinute: 9 * 60, endMinute: 17 * 60 }] }
+    const heartbeats = [
+      heartbeat({ appName: 'Code', startedAt: new Date(2026, 0, 5, 10).getTime(), endedAt: new Date(2026, 0, 5, 10, 10).getTime() }),
+      heartbeat({ appName: 'Twitter', startedAt: new Date(2026, 0, 5, 20).getTime(), endedAt: new Date(2026, 0, 5, 20, 10).getTime() }),
+    ]
+
+    const { focusQualityBreakdown, focusQualityScore } = derive({
+      heartbeats,
+      categories,
+      rules,
+      workingHours,
+      now: new Date(2026, 0, 5, 21).getTime(),
+    })
+
+    // Only the in-hours Focus span counts; the off-hours Distracting span is excluded entirely.
+    expect(focusQualityBreakdown.focusRatio).toBe(1)
+    expect(focusQualityBreakdown.distractionPenalty).toBe(0)
+    expect(focusQualityScore).toBe(80)
+  })
+})

@@ -5,7 +5,7 @@ import type { Heartbeat, Span } from './heartbeat'
 import type { ManualEntry } from './manualEntry'
 import type { Override } from './override'
 import type { Project } from './project'
-import { computeWorkModeState } from './workMode'
+import { computeWorkModeState, workingHoursOverlapMs } from './workMode'
 import type { WorkModeOverride, WorkModeState, WorkingHoursSchedule } from './workMode'
 
 /**
@@ -69,10 +69,26 @@ export interface FocusSession {
   endedAt: number
 }
 
+/**
+ * The Focus Quality Score's transparent breakdown (#25) — each component in
+ * 0–1, shown alongside the number so the user can see why it is what it is.
+ */
+export interface FocusQualityScoreBreakdown {
+  /** Share of work-hours active time that is Focus-rated. */
+  focusRatio: number
+  /** Share of work-hours active time that is Distracting-rated. */
+  distractionPenalty: number
+  /** Share of work-hours Focus-rated time that fell inside a recognized Focus Session, vs. scattered focus-rated moments too brief to ever cross the purity threshold. */
+  focusContinuity: number
+}
+
 export interface DeriveResult {
   spans: Span[]
   breaks: Break[]
   focusSessions: FocusSession[]
+  /** 0–100, work-hours-scoped; see `focusQualityBreakdown` for the three components behind it. */
+  focusQualityScore: number
+  focusQualityBreakdown: FocusQualityScoreBreakdown
   workModeState: WorkModeState
 }
 
@@ -81,6 +97,14 @@ const DEFAULT_IDLE_THRESHOLD_MS = 5 * 60_000
 const DEFAULT_BREAK_MAX_MS = 60 * 60_000
 const DEFAULT_FOCUS_WINDOW_MS = 15 * 60_000
 const DEFAULT_FOCUS_PURITY_THRESHOLD = 0.75
+
+// Weights for the Focus Quality Score's three components; they sum to 1 so
+// the score stays in 0–100. Focus ratio is weighted highest since it's the
+// most direct read on the day, continuity lowest since it's a refinement of
+// ratio rather than an independent signal.
+const FOCUS_QUALITY_RATIO_WEIGHT = 0.5
+const FOCUS_QUALITY_DISTRACTION_WEIGHT = 0.3
+const FOCUS_QUALITY_CONTINUITY_WEIGHT = 0.2
 
 export function derive(input: DeriveInput): DeriveResult {
   const mergeGapToleranceMs = input.config?.mergeGapToleranceMs ?? DEFAULT_MERGE_GAP_TOLERANCE_MS
@@ -142,8 +166,13 @@ export function derive(input: DeriveInput): DeriveResult {
   const spans = excludeDiscarded(withManualEntries, input.discardedSpans ?? [])
   const focusSessions = computeFocusSessions(spans, focusWindowMs, focusPurityThreshold)
   const workModeState = computeWorkModeState(input.workingHours ?? {}, input.workModeOverride ?? null, input.now)
+  const { score: focusQualityScore, breakdown: focusQualityBreakdown } = computeFocusQualityScore(
+    spans,
+    focusSessions,
+    input.workingHours ?? {},
+  )
 
-  return { spans, breaks, focusSessions, workModeState }
+  return { spans, breaks, focusSessions, focusQualityScore, focusQualityBreakdown, workModeState }
 }
 
 /**
@@ -240,6 +269,60 @@ function sumRatedOverlap(
 
 function overlaps(aStart: number, aEnd: number, bStart: number, bEnd: number): boolean {
   return aStart < bEnd && bStart < aEnd
+}
+
+/**
+ * The Focus Quality Score (#25): a transparent, deterministic 0–100 read on
+ * the day, work-hours-scoped and composed of three legible components — no
+ * ML, no raw context-switch penalty. Focus Sessions already ignore
+ * app-switching (only rating, not app identity, affects a rolling window's
+ * purity — see `computeFocusSessions`), so focus continuity inherits that
+ * same tolerance: a switch-heavy-but-focused day scores the same as a
+ * single-app one.
+ */
+function computeFocusQualityScore(
+  spans: readonly Span[],
+  focusSessions: readonly FocusSession[],
+  workingHours: WorkingHoursSchedule,
+): { score: number; breakdown: FocusQualityScoreBreakdown } {
+  let totalActiveMs = 0
+  let focusMs = 0
+  let distractingMs = 0
+  let sessionFocusMs = 0
+
+  for (const span of spans) {
+    const workMs = workingHoursOverlapMs(span.startedAt, span.endedAt, workingHours)
+    if (workMs <= 0) continue
+    totalActiveMs += workMs
+
+    if (span.rating === 'focus') {
+      focusMs += workMs
+      for (const session of focusSessions) {
+        const overlapStart = Math.max(span.startedAt, session.startedAt)
+        const overlapEnd = Math.min(span.endedAt, session.endedAt)
+        if (overlapEnd > overlapStart) sessionFocusMs += workingHoursOverlapMs(overlapStart, overlapEnd, workingHours)
+      }
+    } else if (span.rating === 'distracting') {
+      distractingMs += workMs
+    }
+  }
+
+  if (totalActiveMs === 0) {
+    return { score: 0, breakdown: { focusRatio: 0, distractionPenalty: 0, focusContinuity: 0 } }
+  }
+
+  const focusRatio = focusMs / totalActiveMs
+  const distractionPenalty = distractingMs / totalActiveMs
+  const focusContinuity = focusMs === 0 ? 0 : sessionFocusMs / focusMs
+
+  const score = Math.round(
+    100 *
+      (FOCUS_QUALITY_RATIO_WEIGHT * focusRatio +
+        FOCUS_QUALITY_DISTRACTION_WEIGHT * (1 - distractionPenalty) +
+        FOCUS_QUALITY_CONTINUITY_WEIGHT * focusContinuity),
+  )
+
+  return { score, breakdown: { focusRatio, distractionPenalty, focusContinuity } }
 }
 
 /**
