@@ -1,5 +1,5 @@
 import { UNCATEGORIZED } from './category'
-import type { Category, Rule } from './category'
+import type { Category, ProductivityRating, Rule } from './category'
 import type { DiscardedSpan } from './discardedSpan'
 import type { Heartbeat, Span } from './heartbeat'
 import type { ManualEntry } from './manualEntry'
@@ -7,9 +7,8 @@ import type { Override } from './override'
 import type { Project } from './project'
 
 /**
- * Tunable thresholds `derive()` reads. Later slices add focus-window,
- * idle, Nudge, and Break-Reminder thresholds here; this slice only needs
- * the Span merge-gap tolerance.
+ * Tunable thresholds `derive()` reads. Later slices add Nudge and
+ * Break-Reminder thresholds here.
  */
 export interface DeriveConfig {
   /**
@@ -19,6 +18,16 @@ export interface DeriveConfig {
    * heartbeat for the still-active app. Defaults to one poll interval.
    */
   mergeGapToleranceMs?: number
+  /** How long with no HID input before idle becomes a gap. Defaults to 5 min. */
+  idleThresholdMs?: number
+  /** The longest an idle gap can be and still become a Break; longer gaps (or sleep/lock) are discarded. Defaults to 60 min. */
+  breakMaxMs?: number
+  /** The rolling window a Focus Session's purity is measured over. Defaults to 15 min. */
+  focusWindowMs?: number
+  /** The share of a Focus Session window that must be Focus-rated. Defaults to 0.75. */
+  focusPurityThreshold?: number
+  /** Category ids where lack of HID input does not imply absence (e.g. Video Conferencing), so idle is never carved into a gap. */
+  presenceWithoutInputCategoryIds?: readonly number[]
 }
 
 /**
@@ -42,14 +51,37 @@ export interface DeriveInput {
   now: number
 }
 
+/** A derived span where the user stepped away for roughly 5–60 min (machine awake). */
+export interface Break {
+  startedAt: number
+  endedAt: number
+}
+
+/** A derived span where at least the purity threshold of a rolling window was spent on Focus-rated activity. */
+export interface FocusSession {
+  startedAt: number
+  endedAt: number
+}
+
 export interface DeriveResult {
   spans: Span[]
+  breaks: Break[]
+  focusSessions: FocusSession[]
 }
 
 const DEFAULT_MERGE_GAP_TOLERANCE_MS = 3_000
+const DEFAULT_IDLE_THRESHOLD_MS = 5 * 60_000
+const DEFAULT_BREAK_MAX_MS = 60 * 60_000
+const DEFAULT_FOCUS_WINDOW_MS = 15 * 60_000
+const DEFAULT_FOCUS_PURITY_THRESHOLD = 0.75
 
 export function derive(input: DeriveInput): DeriveResult {
   const mergeGapToleranceMs = input.config?.mergeGapToleranceMs ?? DEFAULT_MERGE_GAP_TOLERANCE_MS
+  const idleThresholdMs = input.config?.idleThresholdMs ?? DEFAULT_IDLE_THRESHOLD_MS
+  const breakMaxMs = input.config?.breakMaxMs ?? DEFAULT_BREAK_MAX_MS
+  const focusWindowMs = input.config?.focusWindowMs ?? DEFAULT_FOCUS_WINDOW_MS
+  const focusPurityThreshold = input.config?.focusPurityThreshold ?? DEFAULT_FOCUS_PURITY_THRESHOLD
+  const presenceWithoutInputCategoryIds = new Set(input.config?.presenceWithoutInputCategoryIds ?? [])
   const orderedRules = [...(input.rules ?? [])].sort((a, b) => a.position - b.position)
   const categoriesById = new Map((input.categories ?? []).map((category) => [category.id, category]))
   const projectsById = new Map((input.projects ?? []).map((project) => [project.id, project]))
@@ -59,33 +91,143 @@ export function derive(input: DeriveInput): DeriveResult {
     .slice()
     .sort((a, b) => a.startedAt - b.startedAt)
 
-  const spans: Span[] = []
+  interface MergedSpan {
+    span: Span
+    idleSeconds: number
+  }
+
+  const merged: MergedSpan[] = []
   for (const heartbeat of sorted) {
-    const last = spans[spans.length - 1]
-    if (last && sameIdentity(last, heartbeat) && heartbeat.startedAt - last.endedAt <= mergeGapToleranceMs) {
-      last.endedAt = Math.max(last.endedAt, heartbeat.endedAt)
+    const last = merged[merged.length - 1]
+    if (last && sameIdentity(last.span, heartbeat) && heartbeat.startedAt - last.span.endedAt <= mergeGapToleranceMs) {
+      last.span.endedAt = Math.max(last.span.endedAt, heartbeat.endedAt)
+      last.idleSeconds = heartbeat.idleSeconds
       continue
     }
-    spans.push({
-      startedAt: heartbeat.startedAt,
-      endedAt: heartbeat.endedAt,
-      appName: heartbeat.appName,
-      bundleId: heartbeat.bundleId,
-      windowTitle: heartbeat.windowTitle,
-      url: heartbeat.url,
-      overrideId: null,
-      manualEntryId: null,
-      ...categorize(heartbeat, orderedRules, categoriesById, projectsById),
+    merged.push({
+      idleSeconds: heartbeat.idleSeconds,
+      span: {
+        startedAt: heartbeat.startedAt,
+        endedAt: heartbeat.endedAt,
+        appName: heartbeat.appName,
+        bundleId: heartbeat.bundleId,
+        windowTitle: heartbeat.windowTitle,
+        url: heartbeat.url,
+        overrideId: null,
+        manualEntryId: null,
+        ...categorize(heartbeat, orderedRules, categoriesById, projectsById),
+      },
     })
   }
 
-  const overridden = applyOverrides(spans, input.overrides ?? [], categoriesById, projectsById)
+  const { activeSpans, breaks } = carveIdleGaps(merged, {
+    idleThresholdMs,
+    breakMaxMs,
+    presenceWithoutInputCategoryIds,
+  })
+
+  const overridden = applyOverrides(activeSpans, input.overrides ?? [], categoriesById, projectsById)
   const withManualEntries = [
     ...overridden,
     ...manualEntriesToSpans(input.manualEntries ?? [], categoriesById, projectsById),
   ].sort((a, b) => a.startedAt - b.startedAt)
 
-  return { spans: excludeDiscarded(withManualEntries, input.discardedSpans ?? []) }
+  const spans = excludeDiscarded(withManualEntries, input.discardedSpans ?? [])
+  const focusSessions = computeFocusSessions(spans, focusWindowMs, focusPurityThreshold)
+
+  return { spans, breaks, focusSessions }
+}
+
+/**
+ * Idle (`idle_seconds`, already observed per Heartbeat) becomes a gap once a
+ * merged run's trailing idle time crosses the threshold — unless its
+ * Category is Presence-without-input, where lack of HID input doesn't imply
+ * absence. A gap of 5–60 min becomes a Break; longer gaps are discarded
+ * entirely (counted as nothing), same as a raw discontinuity between two
+ * Heartbeats (sleep/lock, since the tracker closes the open Heartbeat on
+ * suspend and only resumes on wake) — no Break is ever synthesized for time
+ * with no Heartbeat coverage at all, regardless of how long that gap is.
+ */
+function carveIdleGaps(
+  merged: readonly { span: Span; idleSeconds: number }[],
+  options: { idleThresholdMs: number; breakMaxMs: number; presenceWithoutInputCategoryIds: ReadonlySet<number> },
+): { activeSpans: Span[]; breaks: Break[] } {
+  const activeSpans: Span[] = []
+  const breaks: Break[] = []
+
+  for (const { span, idleSeconds } of merged) {
+    const idleMs = idleSeconds * 1_000
+    const suppressed = span.categoryId !== null && options.presenceWithoutInputCategoryIds.has(span.categoryId)
+    if (idleMs < options.idleThresholdMs || suppressed) {
+      activeSpans.push(span)
+      continue
+    }
+
+    const idleStart = Math.max(span.startedAt, span.endedAt - idleMs)
+    if (idleStart > span.startedAt) {
+      activeSpans.push({ ...span, endedAt: idleStart })
+    }
+
+    const idleDurationMs = span.endedAt - idleStart
+    if (idleDurationMs <= options.breakMaxMs) {
+      breaks.push({ startedAt: idleStart, endedAt: span.endedAt })
+    }
+  }
+
+  return { activeSpans, breaks }
+}
+
+/**
+ * A Focus Session forms over a maximal run of active Spans whose trailing
+ * rolling window (default 15 min) is at least the purity threshold (default
+ * 75%) Focus-rated. The window's denominator is the fixed window length, not
+ * just observed active time, so an idle/Break gap inside the window counts
+ * against purity the same as any other non-Focus time — and frequent
+ * switching among Focus-rated Spans never resets the run, since only rating
+ * (not app identity) affects the ratio.
+ */
+function computeFocusSessions(spans: readonly Span[], windowMs: number, purityThreshold: number): FocusSession[] {
+  const intervals = spans
+    .map((span) => ({ startedAt: span.startedAt, endedAt: span.endedAt, rating: span.rating }))
+    .sort((a, b) => a.startedAt - b.startedAt)
+
+  const sessions: FocusSession[] = []
+  let sessionStart: number | null = null
+  let sessionEnd: number | null = null
+
+  for (const interval of intervals) {
+    const windowStart = interval.endedAt - windowMs
+    const focusMs = sumRatedOverlap(intervals, 'focus', windowStart, interval.endedAt)
+    const eligible = focusMs / windowMs >= purityThreshold
+
+    if (eligible) {
+      if (sessionStart === null) sessionStart = interval.startedAt
+      sessionEnd = interval.endedAt
+    } else if (sessionStart !== null) {
+      sessions.push({ startedAt: sessionStart, endedAt: sessionEnd! })
+      sessionStart = null
+      sessionEnd = null
+    }
+  }
+  if (sessionStart !== null) sessions.push({ startedAt: sessionStart, endedAt: sessionEnd! })
+
+  return sessions
+}
+
+function sumRatedOverlap(
+  intervals: readonly { startedAt: number; endedAt: number; rating: ProductivityRating }[],
+  rating: ProductivityRating,
+  windowStart: number,
+  windowEnd: number,
+): number {
+  let total = 0
+  for (const interval of intervals) {
+    if (interval.rating !== rating) continue
+    const overlapStart = Math.max(interval.startedAt, windowStart)
+    const overlapEnd = Math.min(interval.endedAt, windowEnd)
+    if (overlapEnd > overlapStart) total += overlapEnd - overlapStart
+  }
+  return total
 }
 
 function overlaps(aStart: number, aEnd: number, bStart: number, bEnd: number): boolean {

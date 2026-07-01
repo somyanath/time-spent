@@ -522,3 +522,130 @@ describe('derive discard', () => {
     expect(spans).toHaveLength(1)
   })
 })
+
+const MIN = 60_000
+
+describe('derive idle and breaks', () => {
+  it('leaves a span untouched when idleSeconds is under the threshold', () => {
+    const heartbeats = [heartbeat({ startedAt: 0, endedAt: 10 * MIN, idleSeconds: 4 * 60 })]
+
+    const { spans, breaks } = derive({ heartbeats, now: 10 * MIN })
+
+    expect(breaks).toEqual([])
+    expect(spans).toEqual([expect.objectContaining({ startedAt: 0, endedAt: 10 * MIN })])
+  })
+
+  it('turns a 5-60 minute idle tail into a Break and trims the active span', () => {
+    // 20 minutes of activity, idle for the trailing 10 minutes.
+    const heartbeats = [heartbeat({ startedAt: 0, endedAt: 20 * MIN, idleSeconds: 10 * 60 })]
+
+    const { spans, breaks } = derive({ heartbeats, now: 20 * MIN })
+
+    expect(spans).toEqual([expect.objectContaining({ startedAt: 0, endedAt: 10 * MIN })])
+    expect(breaks).toEqual([{ startedAt: 10 * MIN, endedAt: 20 * MIN }])
+  })
+
+  it('discards an idle tail over 60 minutes instead of forming a Break', () => {
+    // 5 active minutes followed by a 65-minute idle tail (over the 60-min Break cap).
+    const heartbeats = [heartbeat({ startedAt: 0, endedAt: 70 * MIN, idleSeconds: 65 * 60 })]
+
+    const { spans, breaks } = derive({ heartbeats, now: 70 * MIN })
+
+    expect(breaks).toEqual([])
+    expect(spans).toEqual([expect.objectContaining({ startedAt: 0, endedAt: 5 * MIN })])
+  })
+
+  it('discards a gap between heartbeats (sleep/lock) without forming a Break, regardless of length', () => {
+    // The tracker closes the open heartbeat on suspend and only resumes on
+    // wake, so a real gap between heartbeats represents sleep/lock — even a
+    // short nap must never become a Break.
+    const heartbeats = [
+      heartbeat({ appName: 'Code', startedAt: 0, endedAt: 5 * MIN, idleSeconds: 0 }),
+      heartbeat({ appName: 'Code', startedAt: 15 * MIN, endedAt: 20 * MIN, idleSeconds: 0 }),
+    ]
+
+    const { spans, breaks } = derive({ heartbeats, now: 20 * MIN })
+
+    expect(breaks).toEqual([])
+    expect(spans).toEqual([
+      expect.objectContaining({ startedAt: 0, endedAt: 5 * MIN }),
+      expect.objectContaining({ startedAt: 15 * MIN, endedAt: 20 * MIN }),
+    ])
+  })
+
+  it('suppresses idle-to-gap for a Presence-without-input category', () => {
+    const heartbeats = [heartbeat({ appName: 'Zoom', startedAt: 0, endedAt: 20 * MIN, idleSeconds: 10 * 60 })]
+    const categories = [category({ id: 1, name: 'Video Conferencing', rating: 'neutral' })]
+    const rules = [rule({ id: 1, categoryId: 1, appPattern: 'Zoom' })]
+
+    const { spans, breaks } = derive({
+      heartbeats,
+      categories,
+      rules,
+      config: { presenceWithoutInputCategoryIds: [1] },
+      now: 20 * MIN,
+    })
+
+    expect(breaks).toEqual([])
+    expect(spans).toEqual([expect.objectContaining({ startedAt: 0, endedAt: 20 * MIN })])
+  })
+})
+
+describe('derive focus sessions', () => {
+  it('forms a Focus Session once the rolling window hits exactly the purity threshold', () => {
+    const focusCategory = category({ id: 1, name: 'Code', rating: 'focus' })
+    const neutralCategory = category({ id: 2, name: 'Email', rating: 'neutral' })
+    const categories = [focusCategory, neutralCategory]
+    const rules = [
+      rule({ id: 1, categoryId: 1, appPattern: 'Code' }),
+      rule({ id: 2, categoryId: 2, appPattern: 'Email', position: 1 }),
+    ]
+    // 11.25 focus-rated minutes followed by 3.75 neutral minutes = exactly
+    // 75% of the default 15-minute window.
+    const heartbeats = [
+      heartbeat({ appName: 'Code', startedAt: 0, endedAt: 11.25 * MIN }),
+      heartbeat({ appName: 'Email', startedAt: 11.25 * MIN, endedAt: 15 * MIN }),
+    ]
+
+    const { focusSessions } = derive({ heartbeats, categories, rules, now: 15 * MIN })
+
+    expect(focusSessions).toEqual([{ startedAt: 0, endedAt: 15 * MIN }])
+  })
+
+  it('does not form a Focus Session just under the purity threshold', () => {
+    const categories = [category({ id: 1, name: 'Code', rating: 'focus' }), category({ id: 2, name: 'Email', rating: 'neutral' })]
+    const rules = [
+      rule({ id: 1, categoryId: 1, appPattern: 'Code' }),
+      rule({ id: 2, categoryId: 2, appPattern: 'Email', position: 1 }),
+    ]
+    // 11 focus minutes + 4 neutral minutes = 73.3%, just short of 75%.
+    const heartbeats = [
+      heartbeat({ appName: 'Code', startedAt: 0, endedAt: 11 * MIN }),
+      heartbeat({ appName: 'Email', startedAt: 11 * MIN, endedAt: 15 * MIN }),
+    ]
+
+    const { focusSessions } = derive({ heartbeats, categories, rules, now: 15 * MIN })
+
+    expect(focusSessions).toEqual([])
+  })
+
+  it('does not break a session when switching among Focus-rated apps', () => {
+    const categories = [category({ id: 1, name: 'Focus', rating: 'focus' })]
+    const rules = [rule({ id: 1, categoryId: 1, appPattern: 'Focus' })]
+    // Six 5-minute blocks (30 min total), alternating app identity, all Focus-rated.
+    const heartbeats = Array.from({ length: 6 }, (_, i) =>
+      heartbeat({ appName: `Focus App ${i}`, startedAt: i * 5 * MIN, endedAt: (i + 1) * 5 * MIN }),
+    )
+
+    const { focusSessions } = derive({ heartbeats, categories, rules, now: 30 * MIN })
+
+    expect(focusSessions).toHaveLength(1)
+    expect(focusSessions[0].endedAt).toBe(30 * MIN)
+  })
+
+  it('returns no focus sessions when there are no spans', () => {
+    const { focusSessions } = derive({ heartbeats: [], now: 0 })
+
+    expect(focusSessions).toEqual([])
+  })
+})
