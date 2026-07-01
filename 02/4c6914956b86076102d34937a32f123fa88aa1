@@ -1,0 +1,78 @@
+electron.vite.config.ts
+  s_c50c13431d9072::t_700aa3b76f2c16 1-32
+src/main/index.ts
+  s_c50c13431d9072::t_4cef7f8d03508d 33-45
+  s_c50c13431d9072::t_466533b54288c9 23-27
+  s_c50c13431d9072::t_c2c2f09f4e0f75 1,3-22,28-32,46-58
+  s_c50c13431d9072::t_34b49bbcc86289 2
+src/renderer/src/styles.css
+  s_c50c13431d9072::t_e52b46707c14b1 1-84
+src/renderer/src/views/Today.tsx
+  s_c50c13431d9072::t_68d27d1e02d22c 1-6,10-33
+  s_c50c13431d9072::t_9da20568eb8b7f 7-9
+src/preload/index.d.ts
+  s_c50c13431d9072::t_5d485a308b8d3e 1-9
+README.md
+  s_c50c13431d9072::t_221655e43541d8 2-66
+vitest.config.ts
+  s_c50c13431d9072::t_bfb44ff206864a 1-10
+tsconfig.json
+  s_c50c13431d9072::t_bf298afb8c58aa 1-7
+src/shared/constants.ts
+  s_c50c13431d9072::t_f445b0b426df8e 1-5
+src/main/window.ts
+  s_c50c13431d9072::t_22a34cecd93421 49
+  s_c50c13431d9072::t_e5db8adf613059 9-16
+  s_c50c13431d9072::t_e51190a58faba9 1-8,17-44,48,52-67
+  s_c50c13431d9072::t_df94946de4f650 45-47,50-51
+src/main/tray.ts
+  s_c50c13431d9072::t_71e25975f97f86 1-27
+src/main/db/migration-runner.test.ts
+  s_c50c13431d9072::t_9cdb68b75efd4b 1-121
+tsconfig.node.json
+  s_c50c13431d9072::t_e8035a75f125aa 1-25
+src/main/db/migration-runner.ts
+  s_c50c13431d9072::t_2c59e20bec6fff 1-78
+src/renderer/src/main.tsx
+  s_c50c13431d9072::t_dc00393585b3d3 1-13
+src/main/tray-icon.ts
+  s_c50c13431d9072::t_27625cbc7b8ce6 1-14
+src/preload/index.ts
+  s_c50c13431d9072::t_95b842793defde 1-15
+.npmrc
+  s_c50c13431d9072::t_11ab322e164a21 1-3
+src/main/db/migrations.ts
+  s_c50c13431d9072::t_00c06f4c36d2b5 1-14
+src/renderer/src/App.tsx
+  s_c50c13431d9072::t_bac6c7cc344758 2-8,10-17
+  s_c50c13431d9072::t_5db6afd0270c7f 9
+  s_c50c13431d9072::t_5dc233580a3a8d 1
+src/renderer/index.html
+  s_c50c13431d9072::t_5e2d7c295f47bd 1-17
+package.json
+  s_c50c13431d9072::t_c13f66f188f74b 1-45
+electron-builder.yml
+  s_c50c13431d9072::t_f910ffd0750450 1-14
+tsconfig.web.json
+  s_c50c13431d9072::t_3807fbbcf8fff0 1-20
+src/main/db/open.ts
+  s_c50c13431d9072::t_ed98c1dbc46cd9 1-30
+pnpm-lock.yaml
+  s_c50c13431d9072::t_79a678d79a7134 1-4378
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.5",
+  "base_commit_sha": "024c6914956b86076102d34937a32f123fa88aa1",
+  "prompts": {},
+  "sessions": {
+    "s_c50c13431d9072": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "7937568f-e168-48bc-97ec-0202f36c5f1f",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Somyanath_Mohanty <mohantysomyanath@gmail.com>"
+    }
+  }
+}
