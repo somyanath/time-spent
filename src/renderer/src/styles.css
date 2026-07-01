@@ -6,6 +6,9 @@
   --text: #e6e8ee;
   --text-dim: #9aa2b1;
   --accent: #5b8cff;
+  --rating-focus: #4ade80;
+  --rating-neutral: #9aa2b1;
+  --rating-distracting: #f87171;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
 }
 
@@ -74,6 +77,13 @@ body {
 
 .app__nav-item--disabled {
   opacity: 0.45;
+}
+
+.app__nav-link {
+  all: unset;
+  display: block;
+  width: 100%;
+  cursor: pointer;
 }
 
 .app__main {
@@ -179,6 +189,13 @@ body {
   font-weight: 500;
 }
 
+.today__timeline-category {
+  color: var(--text-dim);
+  font-size: 13px;
+  margin-right: auto;
+  padding-left: 12px;
+}
+
 .today__timeline-time {
   color: var(--text-dim);
   font-size: 13px;
@@ -190,4 +207,164 @@ body {
   color: var(--text-dim);
   font-size: 12px;
   opacity: 0.7;
+}
+
+.today__category-split {
+  list-style: none;
+  margin: 0 0 24px;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.today__category-split-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 6px 12px;
+  font-size: 13px;
+}
+
+.today__category-split-name {
+  font-weight: 500;
+}
+
+.today__category-split-duration {
+  color: var(--text-dim);
+}
+
+.today__rating-dot,
+.settings__rating-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex: none;
+}
+
+.today__rating-dot--focus,
+.settings__rating-dot--focus {
+  background: var(--rating-focus);
+}
+
+.today__rating-dot--neutral,
+.settings__rating-dot--neutral {
+  background: var(--rating-neutral);
+}
+
+.today__rating-dot--distracting,
+.settings__rating-dot--distracting {
+  background: var(--rating-distracting);
+}
+
+.settings {
+  max-width: 720px;
+  margin: 0 auto;
+}
+
+.settings__header {
+  margin-bottom: 32px;
+}
+
+.settings__title {
+  font-size: 28px;
+  font-weight: 700;
+  margin: 0;
+}
+
+.settings__section {
+  margin-bottom: 40px;
+}
+
+.settings__section-title {
+  font-size: 16px;
+  font-weight: 600;
+  margin: 0 0 4px;
+}
+
+.settings__section-hint {
+  color: var(--text-dim);
+  font-size: 13px;
+  margin: 0 0 16px;
+}
+
+.settings__list {
+  list-style: none;
+  margin: 0 0 16px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+}
+
+.settings__list-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--surface);
+  padding: 10px 16px;
+}
+
+.settings__list-item-name {
+  font-weight: 500;
+}
+
+.settings__list-item-meta {
+  color: var(--text-dim);
+  font-size: 13px;
+  margin-right: auto;
+}
+
+.settings__reorder,
+.settings__delete {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: 6px;
+  padding: 4px 8px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.settings__reorder:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.settings__form {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.settings__form input,
+.settings__form select {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-size: 13px;
+}
+
+.settings__form button {
+  background: var(--accent);
+  border: none;
+  color: white;
+  border-radius: 8px;
+  padding: 8px 14px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.settings__form button:disabled {
+  opacity: 0.5;
+  cursor: default;
 }

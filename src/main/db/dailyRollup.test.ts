@@ -1,8 +1,10 @@
 import Database from 'better-sqlite3'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { createCategory } from './categories'
 import { getOrComputeDailyRollup } from './dailyRollup'
 import { insertHeartbeats } from './heartbeats'
 import { migrations, runMigrations } from './migrations'
+import { createRule } from './rules'
 import type { Heartbeat } from '../../shared/heartbeat'
 
 function heartbeat(overrides: Partial<Heartbeat>): Heartbeat {
@@ -100,5 +102,30 @@ describe('getOrComputeDailyRollup', () => {
 
     expect(day1).toEqual([expect.objectContaining({ appName: 'Code' })])
     expect(day2).toEqual([expect.objectContaining({ appName: 'Slack' })])
+  })
+
+  it('categorizes spans using the current Categories and Rules', () => {
+    const categoryId = createCategory(db, 'Code', 'focus').id
+    createRule(db, { categoryId, appPattern: 'Code' })
+    insertHeartbeats(db, [heartbeat({ startedAt: 0, endedAt: 3_000, appName: 'Code' })])
+
+    const spans = getOrComputeDailyRollup(db, { dateKey: '2026-07-01', startMs: 0, endMs: 86_400_000, now: 3_000 })
+
+    expect(spans).toEqual([expect.objectContaining({ categoryId, categoryName: 'Code', rating: 'focus' })])
+  })
+
+  it('re-derives (bypassing the cache) when a Rule changes after the row was cached', () => {
+    const codeId = createCategory(db, 'Code', 'focus').id
+    const rule = createRule(db, { categoryId: codeId, appPattern: 'Code' })
+    insertHeartbeats(db, [heartbeat({ startedAt: 0, endedAt: 3_000, appName: 'Code' })])
+    const before = getOrComputeDailyRollup(db, { dateKey: '2026-07-01', startMs: 0, endMs: 86_400_000, now: 3_000 })
+    expect(before).toEqual([expect.objectContaining({ categoryId: codeId })])
+
+    const distractionId = createCategory(db, 'Distraction', 'distracting').id
+    db.prepare('UPDATE rules SET category_id = ? WHERE id = ?').run(distractionId, rule.id)
+    db.prepare('UPDATE derivation_version SET version = version + 1 WHERE id = 1').run()
+
+    const after = getOrComputeDailyRollup(db, { dateKey: '2026-07-01', startMs: 0, endMs: 86_400_000, now: 3_000 })
+    expect(after).toEqual([expect.objectContaining({ categoryId: distractionId, rating: 'distracting' })])
   })
 })

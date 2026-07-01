@@ -1,5 +1,8 @@
 import { createHeartbeats } from './001-create-heartbeats'
 import { createDailyRollup } from './002-create-daily-rollup'
+import { createCategories } from './003-create-categories'
+import { createRules } from './004-create-rules'
+import { addDerivationVersion } from './005-add-derivation-version'
 import type { Migration } from './types'
 
 /**
@@ -10,7 +13,13 @@ import type { Migration } from './types'
  * or a later slice's addition. Add migrations here — never edit an
  * already-released one — with strictly increasing, unique `version` numbers.
  */
-export const migrations: Migration[] = [createHeartbeats, createDailyRollup]
+export const migrations: Migration[] = [
+  createHeartbeats,
+  createDailyRollup,
+  createCategories,
+  createRules,
+  addDerivationVersion,
+]
 
 export { runMigrations } from './runner'
 export type { Migration, MigrationResult } from './types'

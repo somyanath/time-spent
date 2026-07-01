@@ -1,3 +1,5 @@
+import { UNCATEGORIZED } from './category'
+import type { Category, Rule } from './category'
 import type { Heartbeat, Span } from './heartbeat'
 
 /**
@@ -18,12 +20,14 @@ export interface DeriveConfig {
 /**
  * The pure derivation core (seam ①). Reads stored Heartbeats plus
  * categorization/config inputs and an injected clock, and derives the
- * entire model. Only `spans` is populated this slice — the signature is the
- * contract later slices (#18-#27) grow into.
+ * entire model. Spans are categorized via the ordered Rules layer this
+ * slice adds (#18); `overrides` and `manualEntries` are still unused — the
+ * signature is the contract later slices (#19-#27) grow into.
  */
 export interface DeriveInput {
   heartbeats: readonly Heartbeat[]
-  rules?: readonly unknown[]
+  categories?: readonly Category[]
+  rules?: readonly Rule[]
   overrides?: readonly unknown[]
   manualEntries?: readonly unknown[]
   config?: DeriveConfig
@@ -38,6 +42,8 @@ const DEFAULT_MERGE_GAP_TOLERANCE_MS = 3_000
 
 export function derive(input: DeriveInput): DeriveResult {
   const mergeGapToleranceMs = input.config?.mergeGapToleranceMs ?? DEFAULT_MERGE_GAP_TOLERANCE_MS
+  const orderedRules = [...(input.rules ?? [])].sort((a, b) => a.position - b.position)
+  const categoriesById = new Map((input.categories ?? []).map((category) => [category.id, category]))
 
   const sorted = input.heartbeats
     .filter((heartbeat) => heartbeat.startedAt <= input.now)
@@ -58,6 +64,7 @@ export function derive(input: DeriveInput): DeriveResult {
       bundleId: heartbeat.bundleId,
       windowTitle: heartbeat.windowTitle,
       url: heartbeat.url,
+      ...categorize(heartbeat, orderedRules, categoriesById),
     })
   }
 
@@ -71,4 +78,39 @@ function sameIdentity(span: Span, heartbeat: Heartbeat): boolean {
     span.windowTitle === heartbeat.windowTitle &&
     span.url === heartbeat.url
   )
+}
+
+/**
+ * Categorizes a span by its observed facts against the ordered Rules layer
+ * (ADR-0001's lowest-priority, fully recomputable categorization). The first
+ * rule (by ascending `position`) whose every non-null pattern matches wins;
+ * unmatched spans get the Uncategorized default.
+ */
+function categorize(
+  facts: Pick<Heartbeat, 'appName' | 'windowTitle' | 'url'>,
+  orderedRules: readonly Rule[],
+  categoriesById: Map<number, Category>,
+): Pick<Span, 'categoryId' | 'categoryName' | 'rating'> {
+  for (const rule of orderedRules) {
+    if (!ruleMatches(rule, facts)) continue
+    const category = categoriesById.get(rule.categoryId)
+    if (!category) continue
+    return { categoryId: category.id, categoryName: category.name, rating: category.rating }
+  }
+  return { ...UNCATEGORIZED }
+}
+
+function ruleMatches(rule: Rule, facts: Pick<Heartbeat, 'appName' | 'windowTitle' | 'url'>): boolean {
+  return (
+    matchesPattern(rule.appPattern, facts.appName) &&
+    matchesPattern(rule.titlePattern, facts.windowTitle) &&
+    matchesPattern(rule.urlPattern, facts.url)
+  )
+}
+
+/** A null pattern is not required to match; a non-null pattern requires a case-insensitive substring match. */
+function matchesPattern(pattern: string | null, value: string | null): boolean {
+  if (pattern === null) return true
+  if (value === null) return false
+  return value.toLowerCase().includes(pattern.toLowerCase())
 }

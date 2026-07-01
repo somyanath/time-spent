@@ -1,3 +1,5 @@
+import type { ProductivityRating } from './category'
+
 /**
  * The observed-facts shapes shared across the main process and renderer.
  *
@@ -18,8 +20,10 @@ export interface Heartbeat {
 
 /**
  * A contiguous interval with a single attribution, derived by merging
- * consecutive like-Heartbeats on read (`derive()`). Categorization
- * (Category/Project/rating) arrives with later slices.
+ * consecutive like-Heartbeats on read (`derive()`). Categorized via the
+ * ordered Rules layer (`categoryId`/`categoryName`/`rating` are the
+ * Uncategorized default when no Rule matches); Project and Overrides arrive
+ * with later slices.
  */
 export interface Span {
   startedAt: number
@@ -28,6 +32,9 @@ export interface Span {
   bundleId: string | null
   windowTitle: string | null
   url: string | null
+  categoryId: number | null
+  categoryName: string
+  rating: ProductivityRating
 }
 
 /** A single point-in-time poll result, before the tracker coalesces it into a Heartbeat. */

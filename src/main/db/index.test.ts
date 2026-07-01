@@ -23,8 +23,8 @@ describe('openDatabase', () => {
 
     expect(db.open).toBe(true)
     expect(db.pragma('journal_mode', { simple: true })).toBe('wal')
-    expect(migration.appliedVersions).toEqual([1, 2])
-    expect(migration.currentVersion).toBe(2)
+    expect(migration.appliedVersions).toEqual([1, 2, 3, 4, 5])
+    expect(migration.currentVersion).toBe(5)
     db.close()
   })
 
