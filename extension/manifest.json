@@ -1,0 +1,20 @@
+{
+  "manifest_version": 2,
+  "name": "Time Tracker URL Capture",
+  "version": "1.0.0",
+  "description": "Reports the active tab URL to the local Time Tracker app over an authenticated localhost WebSocket. No data ever leaves this machine.",
+  "background": {
+    "scripts": ["background.js"],
+    "persistent": true
+  },
+  "options_ui": {
+    "page": "options.html",
+    "open_in_tab": false
+  },
+  "permissions": ["tabs", "storage", "http://127.0.0.1/*"],
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "url-capture@time-tracker.local"
+    }
+  }
+}

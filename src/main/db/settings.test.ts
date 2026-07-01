@@ -16,13 +16,13 @@ describe('settings persistence', () => {
   })
 
   it('defaults App-level-only mode to off', () => {
-    expect(getSettings(db)).toEqual({ appLevelOnly: false })
+    expect(getSettings(db).appLevelOnly).toBe(false)
   })
 
   it('turns App-level-only mode on', () => {
     setAppLevelOnly(db, true)
 
-    expect(getSettings(db)).toEqual({ appLevelOnly: true })
+    expect(getSettings(db).appLevelOnly).toBe(true)
   })
 
   it('turns App-level-only mode back off', () => {
@@ -30,6 +30,14 @@ describe('settings persistence', () => {
 
     setAppLevelOnly(db, false)
 
-    expect(getSettings(db)).toEqual({ appLevelOnly: false })
+    expect(getSettings(db).appLevelOnly).toBe(false)
+  })
+
+  it('generates a stable per-install ws token (#22)', () => {
+    const first = getSettings(db).wsToken
+    const second = getSettings(db).wsToken
+
+    expect(first).toEqual(expect.stringMatching(/^[0-9a-f-]{36}$/))
+    expect(second).toBe(first)
   })
 })

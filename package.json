@@ -25,7 +25,8 @@
   "dependencies": {
     "@rize-io/active-win": "7.5.1",
     "better-sqlite3": "^11.10.0",
-    "node-mac-permissions": "^2.5.0"
+    "node-mac-permissions": "^2.5.0",
+    "ws": "^8.21.0"
   },
   "pnpm": {
     "onlyBuiltDependencies": [
@@ -41,6 +42,7 @@
     "@types/node": "^22.10.5",
     "@types/react": "^18.3.18",
     "@types/react-dom": "^18.3.5",
+    "@types/ws": "^8.18.1",
     "@vitejs/plugin-react": "^4.3.4",
     "electron": "^33.3.1",
     "electron-builder": "^25.1.8",

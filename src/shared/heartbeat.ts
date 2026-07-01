@@ -5,8 +5,8 @@ import type { ProductivityRating } from './category'
  *
  * Per ADR-0001, a Heartbeat carries only what was directly observed — no
  * derived columns (category, session, interval). `windowTitle` and `url` are
- * nullable and always null in this slice; they're populated by the Screen
- * Recording (#21) and browser-capture (#22) slices.
+ * nullable: populated by the Screen Recording grant (#21) and browser-tab
+ * capture (#22) respectively, null when neither is available.
  */
 export interface Heartbeat {
   startedAt: number
@@ -56,9 +56,10 @@ export interface Observation {
 }
 
 /**
- * Unifies the collection sources (active-win + powerMonitor, later the
- * extension WS feed and AppleScript fallback) behind one interface the
- * tracker loop consumes, so it can be driven by a fake source in tests.
+ * Unifies the collection sources (active-win + powerMonitor, plus the
+ * Extension/AppleScript URL resolution folded into each Observation, #22)
+ * behind one interface the tracker loop consumes, so it can be driven by a
+ * fake source in tests.
  */
 export interface HeartbeatSource {
   start(onObservation: (observation: Observation) => void): void

@@ -6,6 +6,8 @@ export type ScreenRecordingStatus = 'authorized' | 'denied' | 'restricted' | 'no
 export interface AppSettings {
   /** When on, the tracker never requests Screen Recording and Heartbeats carry no window title. */
   appLevelOnly: boolean
+  /** The per-install token (#22) the browser extension must present to the localhost WS server. */
+  wsToken: string
 }
 
 /** The renderer's read of where window-title capture stands right now (#21). */

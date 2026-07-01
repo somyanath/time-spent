@@ -13,23 +13,29 @@ export interface ActiveWinHeartbeatSourceOptions {
    * with, now also reachable as a deliberate, user-chosen privacy mode.
    */
   isAppLevelOnly?: () => boolean
+  /** Resolves the active tab URL for the frontmost app's bundle id (#22). Defaults to always-null. */
+  resolveUrl?: (bundleId: string | null) => Promise<string | null>
 }
 
 const DEFAULT_POLL_INTERVAL_MS = 3_000
 
 /**
  * The primary HeartbeatSource: polls `active-win` for the frontmost app and
- * window title (gated on the Screen Recording grant, #21) and `powerMonitor`
- * for idle seconds. URLs arrive with the browser-capture slice (#22).
+ * window title (gated on the Screen Recording grant, #21), resolves the
+ * active tab URL via the injected Extension → AppleScript → none precedence
+ * (#22), and reads `powerMonitor` for idle seconds. Both title and URL are
+ * suppressed in App-level-only mode.
  */
 export class ActiveWinHeartbeatSource implements HeartbeatSource {
   private readonly pollIntervalMs: number
   private readonly isAppLevelOnly: () => boolean
+  private readonly resolveUrl: (bundleId: string | null) => Promise<string | null>
   private timer: ReturnType<typeof setInterval> | null = null
 
   constructor(options: ActiveWinHeartbeatSourceOptions = {}) {
     this.pollIntervalMs = options.pollIntervalMs ?? DEFAULT_POLL_INTERVAL_MS
     this.isAppLevelOnly = options.isAppLevelOnly ?? (() => false)
+    this.resolveUrl = options.resolveUrl ?? (() => Promise.resolve(null))
   }
 
   start(onObservation: (observation: Observation) => void): void {
@@ -53,15 +59,17 @@ export class ActiveWinHeartbeatSource implements HeartbeatSource {
       const result = await activeWin({ screenRecordingPermission: !appLevelOnly })
       if (!result) return
 
+      const bundleId = result.platform === 'macos' ? String(result.owner.bundleId) : null
+
       onObservation({
         timestamp: Date.now(),
         appName: result.owner.name,
-        bundleId: result.platform === 'macos' ? String(result.owner.bundleId) : null,
+        bundleId,
         // `title` comes back as '' (not undefined) whenever it isn't
         // available — both deliberately (App-level-only) and silently
         // (a lapsed grant); either way that's "no title", not an empty string.
         windowTitle: !appLevelOnly && result.platform === 'macos' && result.title !== '' ? result.title : null,
-        url: null,
+        url: appLevelOnly ? null : await this.resolveUrl(bundleId),
         idleSeconds: Math.round(powerMonitor.getSystemIdleTime()),
       })
     } catch (error) {
