@@ -5,6 +5,7 @@ import type { ManualEntry } from './manualEntry'
 import type { Override } from './override'
 import type { AppSettings, PermissionsStatus } from './permissions'
 import type { Project } from './project'
+import type { WorkingHoursSchedule, WorkModeState } from './workMode'
 
 /**
  * The typed surface the preload bridge exposes to the renderer on
@@ -67,6 +68,15 @@ export interface TimeTrackerApi {
   getSettings: () => Promise<AppSettings>
   /** Toggling on stops requesting Screen Recording and titles going forward; toggling off re-requests the grant. */
   setAppLevelOnly: (value: boolean) => Promise<AppSettings>
+
+  /** The effective Work Mode right now: the Working Hours schedule plus any still-active manual override (#24). */
+  getWorkModeState: () => Promise<WorkModeState>
+  getWorkingHours: () => Promise<WorkingHoursSchedule>
+  /** Replaces the whole per-weekday schedule in one write. */
+  setWorkingHours: (schedule: WorkingHoursSchedule) => Promise<WorkingHoursSchedule>
+  /** Forces Work Mode to `value` until the next scheduled boundary, after which the schedule resumes on its own. */
+  setWorkModeOverride: (value: boolean) => Promise<WorkModeState>
+  clearWorkModeOverride: () => Promise<WorkModeState>
 
   /** Screen Recording grant status, plus whether recent Heartbeats show it's silently lapsed (#21). */
   getPermissionsStatus: () => Promise<PermissionsStatus>

@@ -5,7 +5,7 @@ import { openDatabase } from './db'
 import { registerIpcHandlers } from './ipc'
 import { startTracking } from './tracker'
 import type { TrackingController } from './tracker'
-import { createTray } from './tray'
+import { createTray, stopTrayRefresh } from './tray'
 
 // Stable app identity → a stable `~/Library/Application Support/<app>/` folder
 // (and, once signed, stable TCC permission grants across rebuilds). Must be set
@@ -41,11 +41,12 @@ app.whenReady().then(() => {
   tracking = startTracking(db)
   console.log('[tracker] passive tracking started')
 
-  createTray()
+  createTray(db)
   console.log('[tray] menu-bar agent ready')
 })
 
 app.on('before-quit', () => {
+  stopTrayRefresh()
   tracking?.stop()
   tracking = null
   db?.close()

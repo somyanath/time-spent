@@ -24,6 +24,11 @@ import {
   SETTINGS_GET_CHANNEL,
   SETTINGS_SET_APP_LEVEL_ONLY_CHANNEL,
   TODAY_GET_SPANS_CHANNEL,
+  WORK_MODE_CLEAR_OVERRIDE_CHANNEL,
+  WORK_MODE_GET_STATE_CHANNEL,
+  WORK_MODE_GET_WORKING_HOURS_CHANNEL,
+  WORK_MODE_SET_OVERRIDE_CHANNEL,
+  WORK_MODE_SET_WORKING_HOURS_CHANNEL,
 } from '../shared/ipcChannels'
 
 // Context isolation is on, so nothing Node-y leaks into the renderer; we hand it
@@ -61,6 +66,12 @@ const api: TimeTrackerApi = {
 
   getSettings: () => ipcRenderer.invoke(SETTINGS_GET_CHANNEL),
   setAppLevelOnly: (value) => ipcRenderer.invoke(SETTINGS_SET_APP_LEVEL_ONLY_CHANNEL, value),
+
+  getWorkModeState: () => ipcRenderer.invoke(WORK_MODE_GET_STATE_CHANNEL),
+  getWorkingHours: () => ipcRenderer.invoke(WORK_MODE_GET_WORKING_HOURS_CHANNEL),
+  setWorkingHours: (schedule) => ipcRenderer.invoke(WORK_MODE_SET_WORKING_HOURS_CHANNEL, schedule),
+  setWorkModeOverride: (value) => ipcRenderer.invoke(WORK_MODE_SET_OVERRIDE_CHANNEL, value),
+  clearWorkModeOverride: () => ipcRenderer.invoke(WORK_MODE_CLEAR_OVERRIDE_CHANNEL),
 
   getPermissionsStatus: () => ipcRenderer.invoke(PERMISSIONS_GET_STATUS_CHANNEL),
   requestScreenRecordingAccess: () => ipcRenderer.invoke(PERMISSIONS_REQUEST_SCREEN_RECORDING_CHANNEL),

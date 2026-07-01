@@ -648,4 +648,30 @@ describe('derive focus sessions', () => {
 
     expect(focusSessions).toEqual([])
   })
+
+  it('computes workModeState from the Working Hours schedule (#24)', () => {
+    // Mon Jan 5 2026 is a Monday (Date#getDay() === 1).
+    const workingHours = { 1: [{ startMinute: 9 * 60, endMinute: 17 * 60 }] }
+
+    const duringHours = derive({ heartbeats: [], workingHours, now: new Date(2026, 0, 5, 10).getTime() })
+    expect(duringHours.workModeState.isOn).toBe(true)
+
+    const outsideHours = derive({ heartbeats: [], workingHours, now: new Date(2026, 0, 5, 18).getTime() })
+    expect(outsideHours.workModeState.isOn).toBe(false)
+  })
+
+  it('lets a manual Work Mode override win over the schedule (#24)', () => {
+    const workingHours = { 1: [{ startMinute: 9 * 60, endMinute: 17 * 60 }] }
+    const workModeOverride = { value: true, setAt: new Date(2026, 0, 5, 18).getTime() }
+
+    const { workModeState } = derive({
+      heartbeats: [],
+      workingHours,
+      workModeOverride,
+      now: new Date(2026, 0, 5, 19).getTime(),
+    })
+
+    expect(workModeState.isOn).toBe(true)
+    expect(workModeState.overridden).toBe(true)
+  })
 })

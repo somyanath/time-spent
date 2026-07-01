@@ -9,6 +9,13 @@ import { createOverride, deleteOverride } from './db/overrides'
 import { createProject, deleteProject, listProjects, updateProject } from './db/projects'
 import { createRule, deleteRule, listRules, reorderRules } from './db/rules'
 import { getSettings, setAppLevelOnly } from './db/settings'
+import {
+  clearWorkModeOverride,
+  getWorkingHours,
+  getWorkModeState,
+  setWorkingHours,
+  setWorkModeOverride,
+} from './db/workMode'
 import { getLocalDayRange } from './dayRange'
 import { getScreenRecordingStatus, openScreenRecordingSettings, requestScreenRecordingAccess } from './permissions'
 import type { Category, ProductivityRating, Rule } from '../shared/category'
@@ -38,12 +45,18 @@ import {
   SETTINGS_GET_CHANNEL,
   SETTINGS_SET_APP_LEVEL_ONLY_CHANNEL,
   TODAY_GET_SPANS_CHANNEL,
+  WORK_MODE_CLEAR_OVERRIDE_CHANNEL,
+  WORK_MODE_GET_STATE_CHANNEL,
+  WORK_MODE_GET_WORKING_HOURS_CHANNEL,
+  WORK_MODE_SET_OVERRIDE_CHANNEL,
+  WORK_MODE_SET_WORKING_HOURS_CHANNEL,
 } from '../shared/ipcChannels'
 import type { ManualEntry } from '../shared/manualEntry'
 import type { Override } from '../shared/override'
 import { detectSilentPermissionLapse } from '../shared/permissions'
 import type { AppSettings, PermissionsStatus } from '../shared/permissions'
 import type { Project } from '../shared/project'
+import type { WorkingHoursSchedule, WorkModeState } from '../shared/workMode'
 
 const LAPSE_CHECK_SAMPLE_SIZE = 5
 
@@ -123,6 +136,21 @@ export function registerIpcHandlers(db: Database.Database): void {
     SETTINGS_SET_APP_LEVEL_ONLY_CHANNEL,
     (_event, value: boolean): AppSettings => setAppLevelOnly(db, value),
   )
+
+  ipcMain.handle(WORK_MODE_GET_STATE_CHANNEL, (): WorkModeState => getWorkModeState(db, Date.now()))
+  ipcMain.handle(WORK_MODE_GET_WORKING_HOURS_CHANNEL, (): WorkingHoursSchedule => getWorkingHours(db))
+  ipcMain.handle(
+    WORK_MODE_SET_WORKING_HOURS_CHANNEL,
+    (_event, schedule: WorkingHoursSchedule): WorkingHoursSchedule => setWorkingHours(db, schedule),
+  )
+  ipcMain.handle(WORK_MODE_SET_OVERRIDE_CHANNEL, (_event, value: boolean): WorkModeState => {
+    setWorkModeOverride(db, value, Date.now())
+    return getWorkModeState(db, Date.now())
+  })
+  ipcMain.handle(WORK_MODE_CLEAR_OVERRIDE_CHANNEL, (): WorkModeState => {
+    clearWorkModeOverride(db)
+    return getWorkModeState(db, Date.now())
+  })
 
   ipcMain.handle(PERMISSIONS_GET_STATUS_CHANNEL, (): PermissionsStatus => {
     const { appLevelOnly } = getSettings(db)

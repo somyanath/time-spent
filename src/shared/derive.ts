@@ -5,6 +5,8 @@ import type { Heartbeat, Span } from './heartbeat'
 import type { ManualEntry } from './manualEntry'
 import type { Override } from './override'
 import type { Project } from './project'
+import { computeWorkModeState } from './workMode'
+import type { WorkModeOverride, WorkModeState, WorkingHoursSchedule } from './workMode'
 
 /**
  * Tunable thresholds `derive()` reads. Later slices add Nudge and
@@ -48,6 +50,10 @@ export interface DeriveInput {
   manualEntries?: readonly ManualEntry[]
   discardedSpans?: readonly DiscardedSpan[]
   config?: DeriveConfig
+  /** The per-weekday Working Hours schedule (#24) that gates judgment features, never tracking. */
+  workingHours?: WorkingHoursSchedule
+  /** A manual Work Mode toggle that wins over the schedule until the next scheduled boundary. */
+  workModeOverride?: WorkModeOverride | null
   now: number
 }
 
@@ -67,6 +73,7 @@ export interface DeriveResult {
   spans: Span[]
   breaks: Break[]
   focusSessions: FocusSession[]
+  workModeState: WorkModeState
 }
 
 const DEFAULT_MERGE_GAP_TOLERANCE_MS = 3_000
@@ -134,8 +141,9 @@ export function derive(input: DeriveInput): DeriveResult {
 
   const spans = excludeDiscarded(withManualEntries, input.discardedSpans ?? [])
   const focusSessions = computeFocusSessions(spans, focusWindowMs, focusPurityThreshold)
+  const workModeState = computeWorkModeState(input.workingHours ?? {}, input.workModeOverride ?? null, input.now)
 
-  return { spans, breaks, focusSessions }
+  return { spans, breaks, focusSessions, workModeState }
 }
 
 /**

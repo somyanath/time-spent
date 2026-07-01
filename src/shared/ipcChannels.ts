@@ -27,6 +27,12 @@ export const DISCARDED_SPANS_CREATE_CHANNEL = 'discardedSpans:create'
 export const SETTINGS_GET_CHANNEL = 'settings:get'
 export const SETTINGS_SET_APP_LEVEL_ONLY_CHANNEL = 'settings:setAppLevelOnly'
 
+export const WORK_MODE_GET_STATE_CHANNEL = 'workMode:getState'
+export const WORK_MODE_GET_WORKING_HOURS_CHANNEL = 'workMode:getWorkingHours'
+export const WORK_MODE_SET_WORKING_HOURS_CHANNEL = 'workMode:setWorkingHours'
+export const WORK_MODE_SET_OVERRIDE_CHANNEL = 'workMode:setOverride'
+export const WORK_MODE_CLEAR_OVERRIDE_CHANNEL = 'workMode:clearOverride'
+
 export const PERMISSIONS_GET_STATUS_CHANNEL = 'permissions:getStatus'
 export const PERMISSIONS_REQUEST_SCREEN_RECORDING_CHANNEL = 'permissions:requestScreenRecording'
 export const PERMISSIONS_OPEN_SCREEN_RECORDING_SETTINGS_CHANNEL = 'permissions:openScreenRecordingSettings'
