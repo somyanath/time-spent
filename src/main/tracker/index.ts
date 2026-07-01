@@ -1,6 +1,7 @@
 import type Database from 'better-sqlite3'
 import { powerMonitor } from 'electron'
 import { insertHeartbeats } from '../db/heartbeats'
+import { getSettings } from '../db/settings'
 import { ActiveWinHeartbeatSource } from './activeWinSource'
 import { HeartbeatTracker } from './heartbeatTracker'
 
@@ -20,7 +21,9 @@ export function startTracking(db: Database.Database): TrackingController {
   const tracker = new HeartbeatTracker({
     persist: (heartbeats) => insertHeartbeats(db, heartbeats),
   })
-  const source = new ActiveWinHeartbeatSource()
+  // Read fresh on every poll so toggling App-level-only mode (#21) in
+  // Settings takes effect on the next tick, no restart required.
+  const source = new ActiveWinHeartbeatSource({ isAppLevelOnly: () => getSettings(db).appLevelOnly })
 
   source.start((observation) => tracker.handleObservation(observation))
   const flushTimer = setInterval(() => tracker.flush(), FLUSH_INTERVAL_MS)

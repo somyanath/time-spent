@@ -8,6 +8,7 @@ import { addProjectIdToRules } from './007-add-project-id-to-rules'
 import { createOverrides } from './008-create-overrides'
 import { createManualEntries } from './009-create-manual-entries'
 import { createDiscardedSpans } from './010-create-discarded-spans'
+import { createSettings } from './011-create-settings'
 import type { Migration } from './types'
 
 /**
@@ -29,6 +30,7 @@ export const migrations: Migration[] = [
   createOverrides,
   createManualEntries,
   createDiscardedSpans,
+  createSettings,
 ]
 
 export { runMigrations } from './runner'

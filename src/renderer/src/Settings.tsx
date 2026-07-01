@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
+import { PermissionsSettings } from './PermissionsSettings'
 import type { Category, ProductivityRating, Rule } from '../../shared/category'
 import type { Project } from '../../shared/project'
 
@@ -326,6 +327,8 @@ export function Settings(): JSX.Element {
           </button>
         </form>
       </section>
+
+      <PermissionsSettings />
     </section>
   )
 }

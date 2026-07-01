@@ -49,3 +49,26 @@ export function getHeartbeatsForRange(db: Database.Database, startMs: number, en
 
   return rows
 }
+
+/** The most recently-completed Heartbeats, most-recent first — feeds the silent-permission-lapse check (#21). */
+export function getRecentHeartbeats(db: Database.Database, limit: number): Heartbeat[] {
+  const rows = db
+    .prepare(
+      `
+      SELECT
+        started_at AS startedAt,
+        ended_at AS endedAt,
+        app_name AS appName,
+        bundle_id AS bundleId,
+        window_title AS windowTitle,
+        url,
+        idle_seconds AS idleSeconds
+      FROM heartbeats
+      ORDER BY started_at DESC
+      LIMIT ?
+    `,
+    )
+    .all(limit) as HeartbeatRow[]
+
+  return rows
+}

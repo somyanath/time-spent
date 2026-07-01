@@ -10,6 +10,9 @@ import {
   MANUAL_ENTRIES_DELETE_CHANNEL,
   OVERRIDES_CREATE_CHANNEL,
   OVERRIDES_DELETE_CHANNEL,
+  PERMISSIONS_GET_STATUS_CHANNEL,
+  PERMISSIONS_OPEN_SCREEN_RECORDING_SETTINGS_CHANNEL,
+  PERMISSIONS_REQUEST_SCREEN_RECORDING_CHANNEL,
   PROJECTS_CREATE_CHANNEL,
   PROJECTS_DELETE_CHANNEL,
   PROJECTS_LIST_CHANNEL,
@@ -18,6 +21,8 @@ import {
   RULES_DELETE_CHANNEL,
   RULES_LIST_CHANNEL,
   RULES_REORDER_CHANNEL,
+  SETTINGS_GET_CHANNEL,
+  SETTINGS_SET_APP_LEVEL_ONLY_CHANNEL,
   TODAY_GET_SPANS_CHANNEL,
 } from '../shared/ipcChannels'
 
@@ -53,6 +58,13 @@ const api: TimeTrackerApi = {
   deleteManualEntry: (id) => ipcRenderer.invoke(MANUAL_ENTRIES_DELETE_CHANNEL, id),
 
   createDiscardedSpan: (span) => ipcRenderer.invoke(DISCARDED_SPANS_CREATE_CHANNEL, span),
+
+  getSettings: () => ipcRenderer.invoke(SETTINGS_GET_CHANNEL),
+  setAppLevelOnly: (value) => ipcRenderer.invoke(SETTINGS_SET_APP_LEVEL_ONLY_CHANNEL, value),
+
+  getPermissionsStatus: () => ipcRenderer.invoke(PERMISSIONS_GET_STATUS_CHANNEL),
+  requestScreenRecordingAccess: () => ipcRenderer.invoke(PERMISSIONS_REQUEST_SCREEN_RECORDING_CHANNEL),
+  openScreenRecordingSettings: () => ipcRenderer.invoke(PERMISSIONS_OPEN_SCREEN_RECORDING_SETTINGS_CHANNEL),
 }
 
 contextBridge.exposeInMainWorld('timeTracker', api)

@@ -3,6 +3,7 @@ import type { DiscardedSpan } from './discardedSpan'
 import type { Span } from './heartbeat'
 import type { ManualEntry } from './manualEntry'
 import type { Override } from './override'
+import type { AppSettings, PermissionsStatus } from './permissions'
 import type { Project } from './project'
 
 /**
@@ -62,4 +63,13 @@ export interface TimeTrackerApi {
 
   /** Excludes the given time range from all metrics without touching the underlying Heartbeats. */
   createDiscardedSpan: (span: { startedAt: number; endedAt: number }) => Promise<DiscardedSpan>
+
+  getSettings: () => Promise<AppSettings>
+  /** Toggling on stops requesting Screen Recording and titles going forward; toggling off re-requests the grant. */
+  setAppLevelOnly: (value: boolean) => Promise<AppSettings>
+
+  /** Screen Recording grant status, plus whether recent Heartbeats show it's silently lapsed (#21). */
+  getPermissionsStatus: () => Promise<PermissionsStatus>
+  requestScreenRecordingAccess: () => Promise<void>
+  openScreenRecordingSettings: () => Promise<void>
 }

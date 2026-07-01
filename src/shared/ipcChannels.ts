@@ -23,3 +23,10 @@ export const MANUAL_ENTRIES_CREATE_CHANNEL = 'manualEntries:create'
 export const MANUAL_ENTRIES_DELETE_CHANNEL = 'manualEntries:delete'
 
 export const DISCARDED_SPANS_CREATE_CHANNEL = 'discardedSpans:create'
+
+export const SETTINGS_GET_CHANNEL = 'settings:get'
+export const SETTINGS_SET_APP_LEVEL_ONLY_CHANNEL = 'settings:setAppLevelOnly'
+
+export const PERMISSIONS_GET_STATUS_CHANNEL = 'permissions:getStatus'
+export const PERMISSIONS_REQUEST_SCREEN_RECORDING_CHANNEL = 'permissions:requestScreenRecording'
+export const PERMISSIONS_OPEN_SCREEN_RECORDING_SETTINGS_CHANNEL = 'permissions:openScreenRecordingSettings'

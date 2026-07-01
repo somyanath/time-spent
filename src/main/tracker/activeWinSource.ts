@@ -5,22 +5,31 @@ import type { HeartbeatSource, Observation } from '../../shared/heartbeat'
 export interface ActiveWinHeartbeatSourceOptions {
   /** How often to poll the frontmost app. Defaults to 3s per the PRD. */
   pollIntervalMs?: number
+  /**
+   * Read live before every poll, so toggling App-level-only mode (#21) takes
+   * effect on the very next tick without restarting the source. `false`
+   * (the default) skips the Screen Recording check entirely and titles
+   * always come back null — the app-level-only behavior this slice started
+   * with, now also reachable as a deliberate, user-chosen privacy mode.
+   */
+  isAppLevelOnly?: () => boolean
 }
 
 const DEFAULT_POLL_INTERVAL_MS = 3_000
 
 /**
- * The primary HeartbeatSource: polls `active-win` for the frontmost app
- * (app-level only — no Screen Recording permission, no titles/URLs yet) and
- * `powerMonitor` for idle seconds. Window titles and URLs arrive with the
- * Screen Recording (#21) and browser-capture (#22) slices.
+ * The primary HeartbeatSource: polls `active-win` for the frontmost app and
+ * window title (gated on the Screen Recording grant, #21) and `powerMonitor`
+ * for idle seconds. URLs arrive with the browser-capture slice (#22).
  */
 export class ActiveWinHeartbeatSource implements HeartbeatSource {
   private readonly pollIntervalMs: number
+  private readonly isAppLevelOnly: () => boolean
   private timer: ReturnType<typeof setInterval> | null = null
 
   constructor(options: ActiveWinHeartbeatSourceOptions = {}) {
     this.pollIntervalMs = options.pollIntervalMs ?? DEFAULT_POLL_INTERVAL_MS
+    this.isAppLevelOnly = options.isAppLevelOnly ?? (() => false)
   }
 
   start(onObservation: (observation: Observation) => void): void {
@@ -38,16 +47,20 @@ export class ActiveWinHeartbeatSource implements HeartbeatSource {
 
   private async poll(onObservation: (observation: Observation) => void): Promise<void> {
     try {
-      // Disabling the Screen Recording permission check keeps this slice
-      // app-level-only: `title` always comes back empty and no prompt fires.
-      const result = await activeWin({ screenRecordingPermission: false })
+      const appLevelOnly = this.isAppLevelOnly()
+      // App-level-only mode never triggers the Screen Recording prompt and
+      // never reads titles, by design (#21) — not just when the grant is absent.
+      const result = await activeWin({ screenRecordingPermission: !appLevelOnly })
       if (!result) return
 
       onObservation({
         timestamp: Date.now(),
         appName: result.owner.name,
         bundleId: result.platform === 'macos' ? String(result.owner.bundleId) : null,
-        windowTitle: null,
+        // `title` comes back as '' (not undefined) whenever it isn't
+        // available — both deliberately (App-level-only) and silently
+        // (a lapsed grant); either way that's "no title", not an empty string.
+        windowTitle: !appLevelOnly && result.platform === 'macos' && result.title !== '' ? result.title : null,
         url: null,
         idleSeconds: Math.round(powerMonitor.getSystemIdleTime()),
       })

@@ -1,6 +1,6 @@
 import Database from 'better-sqlite3'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { getHeartbeatsForRange, insertHeartbeats } from './heartbeats'
+import { getHeartbeatsForRange, getRecentHeartbeats, insertHeartbeats } from './heartbeats'
 import { migrations, runMigrations } from './migrations'
 import type { Heartbeat } from '../../shared/heartbeat'
 
@@ -70,5 +70,17 @@ describe('heartbeats persistence', () => {
     expect(row.bundleId).toBeNull()
     expect(row.windowTitle).toBeNull()
     expect(row.url).toBeNull()
+  })
+
+  it('returns the most recent heartbeats, most-recent first, capped at the limit', () => {
+    insertHeartbeats(db, [
+      heartbeat({ startedAt: 0, endedAt: 1_000, appName: 'A' }),
+      heartbeat({ startedAt: 1_000, endedAt: 2_000, appName: 'B' }),
+      heartbeat({ startedAt: 2_000, endedAt: 3_000, appName: 'C' }),
+    ])
+
+    const rows = getRecentHeartbeats(db, 2)
+
+    expect(rows.map((r) => r.appName)).toEqual(['C', 'B'])
   })
 })

@@ -390,3 +390,11 @@ body {
   opacity: 0.5;
   cursor: default;
 }
+
+.settings__toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--text);
+}

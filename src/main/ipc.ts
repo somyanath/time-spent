@@ -3,11 +3,14 @@ import { ipcMain } from 'electron'
 import { createCategory, deleteCategory, listCategories, updateCategory } from './db/categories'
 import { getOrComputeDailyRollup } from './db/dailyRollup'
 import { createDiscardedSpan } from './db/discardedSpans'
+import { getRecentHeartbeats } from './db/heartbeats'
 import { createManualEntry, deleteManualEntry } from './db/manualEntries'
 import { createOverride, deleteOverride } from './db/overrides'
 import { createProject, deleteProject, listProjects, updateProject } from './db/projects'
 import { createRule, deleteRule, listRules, reorderRules } from './db/rules'
+import { getSettings, setAppLevelOnly } from './db/settings'
 import { getLocalDayRange } from './dayRange'
+import { getScreenRecordingStatus, openScreenRecordingSettings, requestScreenRecordingAccess } from './permissions'
 import type { Category, ProductivityRating, Rule } from '../shared/category'
 import type { DiscardedSpan } from '../shared/discardedSpan'
 import type { Span } from '../shared/heartbeat'
@@ -21,6 +24,9 @@ import {
   MANUAL_ENTRIES_DELETE_CHANNEL,
   OVERRIDES_CREATE_CHANNEL,
   OVERRIDES_DELETE_CHANNEL,
+  PERMISSIONS_GET_STATUS_CHANNEL,
+  PERMISSIONS_OPEN_SCREEN_RECORDING_SETTINGS_CHANNEL,
+  PERMISSIONS_REQUEST_SCREEN_RECORDING_CHANNEL,
   PROJECTS_CREATE_CHANNEL,
   PROJECTS_DELETE_CHANNEL,
   PROJECTS_LIST_CHANNEL,
@@ -29,11 +35,17 @@ import {
   RULES_DELETE_CHANNEL,
   RULES_LIST_CHANNEL,
   RULES_REORDER_CHANNEL,
+  SETTINGS_GET_CHANNEL,
+  SETTINGS_SET_APP_LEVEL_ONLY_CHANNEL,
   TODAY_GET_SPANS_CHANNEL,
 } from '../shared/ipcChannels'
 import type { ManualEntry } from '../shared/manualEntry'
 import type { Override } from '../shared/override'
+import { detectSilentPermissionLapse } from '../shared/permissions'
+import type { AppSettings, PermissionsStatus } from '../shared/permissions'
 import type { Project } from '../shared/project'
+
+const LAPSE_CHECK_SAMPLE_SIZE = 5
 
 /** Registers the IPC channels the renderer's preload bridge invokes. */
 export function registerIpcHandlers(db: Database.Database): void {
@@ -105,4 +117,25 @@ export function registerIpcHandlers(db: Database.Database): void {
     DISCARDED_SPANS_CREATE_CHANNEL,
     (_event, span: { startedAt: number; endedAt: number }): DiscardedSpan => createDiscardedSpan(db, span),
   )
+
+  ipcMain.handle(SETTINGS_GET_CHANNEL, (): AppSettings => getSettings(db))
+  ipcMain.handle(
+    SETTINGS_SET_APP_LEVEL_ONLY_CHANNEL,
+    (_event, value: boolean): AppSettings => setAppLevelOnly(db, value),
+  )
+
+  ipcMain.handle(PERMISSIONS_GET_STATUS_CHANNEL, (): PermissionsStatus => {
+    const { appLevelOnly } = getSettings(db)
+    const recentHeartbeats = getRecentHeartbeats(db, LAPSE_CHECK_SAMPLE_SIZE)
+    return {
+      appLevelOnly,
+      screenRecordingStatus: getScreenRecordingStatus(),
+      silentLapseDetected: detectSilentPermissionLapse(recentHeartbeats, {
+        appLevelOnly,
+        minSampleSize: LAPSE_CHECK_SAMPLE_SIZE,
+      }),
+    }
+  })
+  ipcMain.handle(PERMISSIONS_REQUEST_SCREEN_RECORDING_CHANNEL, (): void => requestScreenRecordingAccess())
+  ipcMain.handle(PERMISSIONS_OPEN_SCREEN_RECORDING_SETTINGS_CHANNEL, (): Promise<void> => openScreenRecordingSettings())
 }
