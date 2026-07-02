@@ -30,6 +30,14 @@ export interface DeriveConfig {
   focusPurityThreshold?: number
   /** Category ids where lack of HID input does not imply absence (e.g. Video Conferencing), so idle is never carved into a gap. */
   presenceWithoutInputCategoryIds?: readonly number[]
+  /** The rolling window a Distraction Nudge's purity is measured over. Defaults to 15 min. */
+  nudgeWindowMs?: number
+  /** The share of the Nudge window that must be Distracting-rated. Defaults to 0.75. */
+  nudgePurityThreshold?: number
+  /** Minimum time between Nudge firings, so it doesn't nag every minute. Defaults to 10 min. */
+  nudgeCooldownMs?: number
+  /** Accumulated Focus-rated active time before a Break Reminder becomes eligible. Defaults to 120 min. */
+  breakReminderThresholdMs?: number
 }
 
 /**
@@ -54,6 +62,12 @@ export interface DeriveInput {
   workingHours?: WorkingHoursSchedule
   /** A manual Work Mode toggle that wins over the schedule until the next scheduled boundary. */
   workModeOverride?: WorkModeOverride | null
+  /** When the Nudge last actually fired, so `dueSignals` can enforce its cooldown; null/undefined if it never has. */
+  lastNudgeFiredAt?: number | null
+  /** When the Break Reminder last actually fired since the current accumulation block began, so it isn't re-signaled on every recompute. */
+  lastBreakReminderFiredAt?: number | null
+  /** A user-requested snooze; the Break Reminder stays ineligible until this timestamp. */
+  breakReminderSnoozedUntil?: number | null
   now: number
 }
 
@@ -82,6 +96,16 @@ export interface FocusQualityScoreBreakdown {
   focusContinuity: number
 }
 
+/**
+ * Which coaching notifications (#26) are eligible to fire right now, given
+ * derived state, Work Mode, cooldowns, and last-fired state. Pure output —
+ * a thin effectful layer reads this and fires the actual OS notifications.
+ */
+export interface DueSignals {
+  nudge: boolean
+  breakReminder: boolean
+}
+
 export interface DeriveResult {
   spans: Span[]
   breaks: Break[]
@@ -90,6 +114,7 @@ export interface DeriveResult {
   focusQualityScore: number
   focusQualityBreakdown: FocusQualityScoreBreakdown
   workModeState: WorkModeState
+  dueSignals: DueSignals
 }
 
 const DEFAULT_MERGE_GAP_TOLERANCE_MS = 3_000
@@ -97,6 +122,10 @@ const DEFAULT_IDLE_THRESHOLD_MS = 5 * 60_000
 const DEFAULT_BREAK_MAX_MS = 60 * 60_000
 const DEFAULT_FOCUS_WINDOW_MS = 15 * 60_000
 const DEFAULT_FOCUS_PURITY_THRESHOLD = 0.75
+const DEFAULT_NUDGE_WINDOW_MS = 15 * 60_000
+const DEFAULT_NUDGE_PURITY_THRESHOLD = 0.75
+const DEFAULT_NUDGE_COOLDOWN_MS = 10 * 60_000
+const DEFAULT_BREAK_REMINDER_THRESHOLD_MS = 120 * 60_000
 
 // Weights for the Focus Quality Score's three components; they sum to 1 so
 // the score stays in 0–100. Focus ratio is weighted highest since it's the
@@ -113,6 +142,10 @@ export function derive(input: DeriveInput): DeriveResult {
   const focusWindowMs = input.config?.focusWindowMs ?? DEFAULT_FOCUS_WINDOW_MS
   const focusPurityThreshold = input.config?.focusPurityThreshold ?? DEFAULT_FOCUS_PURITY_THRESHOLD
   const presenceWithoutInputCategoryIds = new Set(input.config?.presenceWithoutInputCategoryIds ?? [])
+  const nudgeWindowMs = input.config?.nudgeWindowMs ?? DEFAULT_NUDGE_WINDOW_MS
+  const nudgePurityThreshold = input.config?.nudgePurityThreshold ?? DEFAULT_NUDGE_PURITY_THRESHOLD
+  const nudgeCooldownMs = input.config?.nudgeCooldownMs ?? DEFAULT_NUDGE_COOLDOWN_MS
+  const breakReminderThresholdMs = input.config?.breakReminderThresholdMs ?? DEFAULT_BREAK_REMINDER_THRESHOLD_MS
   const orderedRules = [...(input.rules ?? [])].sort((a, b) => a.position - b.position)
   const categoriesById = new Map((input.categories ?? []).map((category) => [category.id, category]))
   const projectsById = new Map((input.projects ?? []).map((project) => [project.id, project]))
@@ -171,8 +204,17 @@ export function derive(input: DeriveInput): DeriveResult {
     focusSessions,
     input.workingHours ?? {},
   )
+  const dueSignals = computeDueSignals(spans, breaks, workModeState, input.now, {
+    nudgeWindowMs,
+    nudgePurityThreshold,
+    nudgeCooldownMs,
+    breakReminderThresholdMs,
+    lastNudgeFiredAt: input.lastNudgeFiredAt ?? null,
+    lastBreakReminderFiredAt: input.lastBreakReminderFiredAt ?? null,
+    breakReminderSnoozedUntil: input.breakReminderSnoozedUntil ?? null,
+  })
 
-  return { spans, breaks, focusSessions, focusQualityScore, focusQualityBreakdown, workModeState }
+  return { spans, breaks, focusSessions, focusQualityScore, focusQualityBreakdown, workModeState, dueSignals }
 }
 
 /**
@@ -323,6 +365,100 @@ function computeFocusQualityScore(
   )
 
   return { score, breakdown: { focusRatio, distractionPenalty, focusContinuity } }
+}
+
+interface DueSignalsOptions {
+  nudgeWindowMs: number
+  nudgePurityThreshold: number
+  nudgeCooldownMs: number
+  breakReminderThresholdMs: number
+  lastNudgeFiredAt: number | null
+  lastBreakReminderFiredAt: number | null
+  breakReminderSnoozedUntil: number | null
+}
+
+/**
+ * The Nudge and Break Reminder (#26) — notify-only coaching signals, gated by
+ * Work Mode and computed purely from derived state plus the caller-supplied
+ * last-fired state, so the thin effectful layer only has to fire the OS
+ * notification and remember when it did.
+ */
+function computeDueSignals(
+  spans: readonly Span[],
+  breaks: readonly Break[],
+  workModeState: WorkModeState,
+  now: number,
+  options: DueSignalsOptions,
+): DueSignals {
+  return {
+    nudge: computeNudgeEligible(spans, workModeState, now, options),
+    breakReminder: computeBreakReminderEligible(spans, breaks, workModeState, now, options),
+  }
+}
+
+/**
+ * Eligible once at least the purity threshold of the rolling Nudge window is
+ * Distracting-rated. The window's denominator is its fixed length (same
+ * approach as `computeFocusSessions`), so idle time — which is never a Span,
+ * carved out by `carveIdleGaps` — dilutes the ratio rather than ever being
+ * mistaken for Distracting. Gated by Work Mode and the cooldown since the
+ * last actual firing.
+ */
+function computeNudgeEligible(
+  spans: readonly Span[],
+  workModeState: WorkModeState,
+  now: number,
+  options: DueSignalsOptions,
+): boolean {
+  if (!workModeState.isOn) return false
+  if (options.lastNudgeFiredAt !== null && now - options.lastNudgeFiredAt < options.nudgeCooldownMs) return false
+
+  const windowStart = now - options.nudgeWindowMs
+  const distractingMs = sumRatedOverlap(spans, 'distracting', windowStart, now)
+  return distractingMs / options.nudgeWindowMs >= options.nudgePurityThreshold
+}
+
+/**
+ * Eligible once Focus-rated active time accumulated since the last reset
+ * point reaches the configurable block (default 120 min). Neutral/meeting
+ * Spans simply don't add to the accumulator without resetting it; an actual
+ * away period — an idle-derived Break, a discarded idle tail, or a
+ * sleep/lock discontinuity, all of which show up as a gap in span coverage —
+ * resets it to zero. Snoozable, and re-signals only once per accumulation
+ * block via `lastBreakReminderFiredAt`.
+ */
+function computeBreakReminderEligible(
+  spans: readonly Span[],
+  breaks: readonly Break[],
+  workModeState: WorkModeState,
+  now: number,
+  options: DueSignalsOptions,
+): boolean {
+  if (!workModeState.isOn) return false
+  if (options.breakReminderSnoozedUntil !== null && now < options.breakReminderSnoozedUntil) return false
+
+  const blockStart = lastAccumulatorResetBefore(spans, breaks, now)
+  if (options.lastBreakReminderFiredAt !== null && options.lastBreakReminderFiredAt >= blockStart) return false
+
+  const accumulatedMs = sumRatedOverlap(spans, 'focus', blockStart, now)
+  return accumulatedMs >= options.breakReminderThresholdMs
+}
+
+/** The most recent point before `now` where span coverage has a gap — an idle-derived Break, a discarded idle tail, or sleep/lock — or `-Infinity` if there is none. */
+function lastAccumulatorResetBefore(spans: readonly Span[], breaks: readonly Break[], now: number): number {
+  let latest = -Infinity
+
+  for (const brk of breaks) {
+    if (brk.endedAt <= now && brk.endedAt > latest) latest = brk.endedAt
+  }
+
+  const sorted = spans.filter((span) => span.startedAt <= now).slice().sort((a, b) => a.startedAt - b.startedAt)
+  for (let i = 1; i < sorted.length; i++) {
+    const gapEnd = sorted[i].startedAt
+    if (gapEnd > sorted[i - 1].endedAt && gapEnd <= now && gapEnd > latest) latest = gapEnd
+  }
+
+  return latest
 }
 
 /**

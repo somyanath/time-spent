@@ -838,3 +838,177 @@ describe('derive Focus Quality Score', () => {
     expect(focusQualityScore).toBe(80)
   })
 })
+
+describe('derive Distraction Nudge (#26)', () => {
+  const focusCategory = category({ id: 1, name: 'Code', rating: 'focus' })
+  const neutralCategory = category({ id: 2, name: 'Email', rating: 'neutral' })
+  const distractingCategory = category({ id: 3, name: 'Social Media', rating: 'distracting' })
+  const categories = [focusCategory, neutralCategory, distractingCategory]
+  const rules = [
+    rule({ id: 1, categoryId: 1, appPattern: 'Code' }),
+    rule({ id: 2, categoryId: 2, appPattern: 'Email', position: 1 }),
+    rule({ id: 3, categoryId: 3, appPattern: 'Twitter', position: 2 }),
+  ]
+  const ALL_DAY_RANGE = [{ startMinute: 0, endMinute: 24 * 60 }]
+  const ALL_DAY_WORKING_HOURS = Object.fromEntries([0, 1, 2, 3, 4, 5, 6].map((day) => [day, ALL_DAY_RANGE]))
+
+  it('is eligible at exactly the 75%/15-min boundary, while Work Mode is on', () => {
+    // 11.25 distracting minutes + 3.75 neutral minutes = exactly 75% of the default 15-minute window.
+    const heartbeats = [
+      heartbeat({ appName: 'Twitter', startedAt: 0, endedAt: 11.25 * MIN }),
+      heartbeat({ appName: 'Email', startedAt: 11.25 * MIN, endedAt: 15 * MIN }),
+    ]
+
+    const { dueSignals } = derive({ heartbeats, categories, rules, workingHours: ALL_DAY_WORKING_HOURS, now: 15 * MIN })
+
+    expect(dueSignals.nudge).toBe(true)
+  })
+
+  it('is not eligible just under the 75% boundary', () => {
+    // 11 distracting minutes + 4 neutral minutes = 73.3%, just short of 75%.
+    const heartbeats = [
+      heartbeat({ appName: 'Twitter', startedAt: 0, endedAt: 11 * MIN }),
+      heartbeat({ appName: 'Email', startedAt: 11 * MIN, endedAt: 15 * MIN }),
+    ]
+
+    const { dueSignals } = derive({ heartbeats, categories, rules, workingHours: ALL_DAY_WORKING_HOURS, now: 15 * MIN })
+
+    expect(dueSignals.nudge).toBe(false)
+  })
+
+  it('is never eligible while Work Mode is off', () => {
+    const heartbeats = [heartbeat({ appName: 'Twitter', startedAt: 0, endedAt: 15 * MIN })]
+
+    const { dueSignals } = derive({ heartbeats, categories, rules, now: 15 * MIN })
+
+    expect(dueSignals.nudge).toBe(false)
+  })
+
+  it('excludes idle time from counting as Distracting, diluting the window instead of tripping it', () => {
+    // 5 distracting minutes, then a 10-minute idle tail (carved into a Break, not a Span).
+    const heartbeats = [heartbeat({ appName: 'Twitter', startedAt: 0, endedAt: 15 * MIN, idleSeconds: 10 * 60 })]
+
+    const { dueSignals } = derive({ heartbeats, categories, rules, workingHours: ALL_DAY_WORKING_HOURS, now: 15 * MIN })
+
+    expect(dueSignals.nudge).toBe(false)
+  })
+
+  it('respects the ~10-minute cooldown since it last fired', () => {
+    const heartbeats = [heartbeat({ appName: 'Twitter', startedAt: 0, endedAt: 30 * MIN })]
+
+    const withinCooldown = derive({
+      heartbeats,
+      categories,
+      rules,
+      workingHours: ALL_DAY_WORKING_HOURS,
+      lastNudgeFiredAt: 25 * MIN,
+      now: 30 * MIN,
+    })
+    const afterCooldown = derive({
+      heartbeats,
+      categories,
+      rules,
+      workingHours: ALL_DAY_WORKING_HOURS,
+      lastNudgeFiredAt: 19 * MIN,
+      now: 30 * MIN,
+    })
+
+    expect(withinCooldown.dueSignals.nudge).toBe(false)
+    expect(afterCooldown.dueSignals.nudge).toBe(true)
+  })
+})
+
+describe('derive Break Reminder (#26)', () => {
+  const focusCategory = category({ id: 1, name: 'Code', rating: 'focus' })
+  const neutralCategory = category({ id: 2, name: 'Email', rating: 'neutral' })
+  const categories = [focusCategory, neutralCategory]
+  const rules = [rule({ id: 1, categoryId: 1, appPattern: 'Code' }), rule({ id: 2, categoryId: 2, appPattern: 'Email', position: 1 })]
+  const ALL_DAY_RANGE = [{ startMinute: 0, endMinute: 24 * 60 }]
+  const ALL_DAY_WORKING_HOURS = Object.fromEntries([0, 1, 2, 3, 4, 5, 6].map((day) => [day, ALL_DAY_RANGE]))
+
+  it('is eligible once accumulated Focus-rated time reaches the default 120-minute block', () => {
+    const heartbeats = [heartbeat({ appName: 'Code', startedAt: 0, endedAt: 120 * MIN })]
+
+    const { dueSignals } = derive({ heartbeats, categories, rules, workingHours: ALL_DAY_WORKING_HOURS, now: 120 * MIN })
+
+    expect(dueSignals.breakReminder).toBe(true)
+  })
+
+  it('is not eligible just under the 120-minute block', () => {
+    const heartbeats = [heartbeat({ appName: 'Code', startedAt: 0, endedAt: 119 * MIN })]
+
+    const { dueSignals } = derive({ heartbeats, categories, rules, workingHours: ALL_DAY_WORKING_HOURS, now: 119 * MIN })
+
+    expect(dueSignals.breakReminder).toBe(false)
+  })
+
+  it('does not let Neutral time count toward the accumulator, but does not reset it either', () => {
+    // 60 Focus minutes, 10 Neutral minutes, 60 more Focus minutes — no gap, so Neutral just doesn't add.
+    const heartbeats = [
+      heartbeat({ appName: 'Code', startedAt: 0, endedAt: 60 * MIN }),
+      heartbeat({ appName: 'Email', startedAt: 60 * MIN, endedAt: 70 * MIN }),
+      heartbeat({ appName: 'Code', startedAt: 70 * MIN, endedAt: 130 * MIN }),
+    ]
+
+    const { dueSignals } = derive({ heartbeats, categories, rules, workingHours: ALL_DAY_WORKING_HOURS, now: 130 * MIN })
+
+    expect(dueSignals.breakReminder).toBe(true)
+  })
+
+  it('resets the accumulator to zero after an Idle gap ≥5 min', () => {
+    const config = { breakReminderThresholdMs: 20 * MIN }
+    const heartbeats = [
+      heartbeat({ appName: 'Code', startedAt: 0, endedAt: 15 * MIN }),
+      // A different identity so it doesn't merge with the Focus spans either
+      // side of it; fully idle, so it carves out a Break resetting the accumulator.
+      heartbeat({ appName: 'Idle Screen', startedAt: 15 * MIN, endedAt: 20 * MIN, idleSeconds: 5 * 60 }),
+      heartbeat({ appName: 'Code', startedAt: 20 * MIN, endedAt: 40 * MIN }),
+    ]
+
+    // Only 15 of the last 20 minutes (since the reset) are Focus-rated — under the threshold,
+    // even though 30 Focus-rated minutes exist across the whole history.
+    const stillAccumulating = derive({ heartbeats, categories, rules, workingHours: ALL_DAY_WORKING_HOURS, config, now: 35 * MIN })
+    expect(stillAccumulating.dueSignals.breakReminder).toBe(false)
+
+    const afterReset = derive({ heartbeats, categories, rules, workingHours: ALL_DAY_WORKING_HOURS, config, now: 40 * MIN })
+    expect(afterReset.dueSignals.breakReminder).toBe(true)
+  })
+
+  it('is never eligible while Work Mode is off', () => {
+    const heartbeats = [heartbeat({ appName: 'Code', startedAt: 0, endedAt: 120 * MIN })]
+
+    const { dueSignals } = derive({ heartbeats, categories, rules, now: 120 * MIN })
+
+    expect(dueSignals.breakReminder).toBe(false)
+  })
+
+  it('stays ineligible while snoozed', () => {
+    const heartbeats = [heartbeat({ appName: 'Code', startedAt: 0, endedAt: 120 * MIN })]
+
+    const { dueSignals } = derive({
+      heartbeats,
+      categories,
+      rules,
+      workingHours: ALL_DAY_WORKING_HOURS,
+      breakReminderSnoozedUntil: 130 * MIN,
+      now: 120 * MIN,
+    })
+
+    expect(dueSignals.breakReminder).toBe(false)
+  })
+
+  it('does not re-signal within the same accumulation block once it has already fired', () => {
+    const heartbeats = [heartbeat({ appName: 'Code', startedAt: 0, endedAt: 130 * MIN })]
+
+    const { dueSignals } = derive({
+      heartbeats,
+      categories,
+      rules,
+      workingHours: ALL_DAY_WORKING_HOURS,
+      lastBreakReminderFiredAt: 120 * MIN,
+      now: 130 * MIN,
+    })
+
+    expect(dueSignals.breakReminder).toBe(false)
+  })
+})
