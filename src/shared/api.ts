@@ -1,6 +1,7 @@
 import type { Category, ProductivityRating, Rule } from './category'
+import type { FocusQualityScoreBreakdown, GoalProgress } from './derive'
 import type { DiscardedSpan } from './discardedSpan'
-import type { FocusQualityScoreBreakdown } from './derive'
+import type { GoalsConfig } from './goals'
 import type { Span } from './heartbeat'
 import type { ManualEntry } from './manualEntry'
 import type { Override } from './override'
@@ -23,6 +24,8 @@ export interface TimeTrackerApi {
   getTodaySpans: () => Promise<Span[]>
   /** Today's Focus Quality Score (#25): 0–100, work-hours-scoped, with its three-component breakdown. */
   getTodayFocusQuality: () => Promise<{ score: number; breakdown: FocusQualityScoreBreakdown }>
+  /** Today's Goal progress (#27): accumulated Focus time toward the Focus target, and active time toward the Overwork ceiling. */
+  getTodayGoalProgress: () => Promise<GoalProgress>
 
   listCategories: () => Promise<Category[]>
   createCategory: (name: string, rating: ProductivityRating) => Promise<Category>
@@ -71,6 +74,10 @@ export interface TimeTrackerApi {
   getSettings: () => Promise<AppSettings>
   /** Toggling on stops requesting Screen Recording and titles going forward; toggling off re-requests the grant. */
   setAppLevelOnly: (value: boolean) => Promise<AppSettings>
+
+  /** The daily Focus target and Overwork ceiling (#27); a null field means that goal is off. */
+  getGoalsConfig: () => Promise<GoalsConfig>
+  setGoalsConfig: (config: GoalsConfig) => Promise<GoalsConfig>
 
   /** The effective Work Mode right now: the Working Hours schedule plus any still-active manual override (#24). */
   getWorkModeState: () => Promise<WorkModeState>

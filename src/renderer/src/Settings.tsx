@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
 import { BrowserUrlSettings } from './BrowserUrlSettings'
+import { GoalsSettings } from './GoalsSettings'
 import { PermissionsSettings } from './PermissionsSettings'
 import { WorkingHoursSettings } from './WorkingHoursSettings'
 import type { Category, ProductivityRating, Rule } from '../../shared/category'
@@ -331,6 +332,7 @@ export function Settings(): JSX.Element {
       </section>
 
       <WorkingHoursSettings />
+      <GoalsSettings />
       <PermissionsSettings />
       <BrowserUrlSettings />
     </section>

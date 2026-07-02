@@ -5,6 +5,8 @@ import { getOrComputeDailyRollup } from './db/dailyRollup'
 import { createDiscardedSpan } from './db/discardedSpans'
 import { getFocusQuality } from './db/focusQuality'
 import type { FocusQualityResult } from './db/focusQuality'
+import { getGoalProgress } from './db/goalProgress'
+import { getGoalsConfig, setGoalsConfig } from './db/goals'
 import { getRecentHeartbeats } from './db/heartbeats'
 import { createManualEntry, deleteManualEntry } from './db/manualEntries'
 import { createOverride, deleteOverride } from './db/overrides'
@@ -21,7 +23,9 @@ import {
 import { getLocalDayRange } from './dayRange'
 import { getScreenRecordingStatus, openScreenRecordingSettings, requestScreenRecordingAccess } from './permissions'
 import type { Category, ProductivityRating, Rule } from '../shared/category'
+import type { GoalProgress } from '../shared/derive'
 import type { DiscardedSpan } from '../shared/discardedSpan'
+import type { GoalsConfig } from '../shared/goals'
 import type { Span } from '../shared/heartbeat'
 import {
   CATEGORIES_CREATE_CHANNEL,
@@ -29,6 +33,8 @@ import {
   CATEGORIES_LIST_CHANNEL,
   CATEGORIES_UPDATE_CHANNEL,
   DISCARDED_SPANS_CREATE_CHANNEL,
+  GOALS_GET_CONFIG_CHANNEL,
+  GOALS_SET_CONFIG_CHANNEL,
   MANUAL_ENTRIES_CREATE_CHANNEL,
   MANUAL_ENTRIES_DELETE_CHANNEL,
   OVERRIDES_CREATE_CHANNEL,
@@ -47,6 +53,7 @@ import {
   SETTINGS_GET_CHANNEL,
   SETTINGS_SET_APP_LEVEL_ONLY_CHANNEL,
   TODAY_GET_FOCUS_QUALITY_CHANNEL,
+  TODAY_GET_GOAL_PROGRESS_CHANNEL,
   TODAY_GET_SPANS_CHANNEL,
   WORK_MODE_CLEAR_OVERRIDE_CHANNEL,
   WORK_MODE_GET_STATE_CHANNEL,
@@ -75,6 +82,12 @@ export function registerIpcHandlers(db: Database.Database): void {
     const now = Date.now()
     const { startMs, endMs } = getLocalDayRange(now)
     return getFocusQuality(db, { startMs, endMs, now })
+  })
+
+  ipcMain.handle(TODAY_GET_GOAL_PROGRESS_CHANNEL, (): GoalProgress => {
+    const now = Date.now()
+    const { startMs, endMs } = getLocalDayRange(now)
+    return getGoalProgress(db, { startMs, endMs, now })
   })
 
   ipcMain.handle(CATEGORIES_LIST_CHANNEL, (): Category[] => listCategories(db))
@@ -145,6 +158,9 @@ export function registerIpcHandlers(db: Database.Database): void {
     SETTINGS_SET_APP_LEVEL_ONLY_CHANNEL,
     (_event, value: boolean): AppSettings => setAppLevelOnly(db, value),
   )
+
+  ipcMain.handle(GOALS_GET_CONFIG_CHANNEL, (): GoalsConfig => getGoalsConfig(db))
+  ipcMain.handle(GOALS_SET_CONFIG_CHANNEL, (_event, config: GoalsConfig): GoalsConfig => setGoalsConfig(db, config))
 
   ipcMain.handle(WORK_MODE_GET_STATE_CHANNEL, (): WorkModeState => getWorkModeState(db, Date.now()))
   ipcMain.handle(WORK_MODE_GET_WORKING_HOURS_CHANNEL, (): WorkingHoursSchedule => getWorkingHours(db))

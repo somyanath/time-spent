@@ -1012,3 +1012,160 @@ describe('derive Break Reminder (#26)', () => {
     expect(dueSignals.breakReminder).toBe(false)
   })
 })
+
+describe('derive Goals & Burnout (#27)', () => {
+  const focusCategory = category({ id: 1, name: 'Code', rating: 'focus' })
+  const neutralCategory = category({ id: 2, name: 'Email', rating: 'neutral' })
+  const categories = [focusCategory, neutralCategory]
+  const rules = [rule({ id: 1, categoryId: 1, appPattern: 'Code' }), rule({ id: 2, categoryId: 2, appPattern: 'Email', position: 1 })]
+  const ALL_DAY_RANGE = [{ startMinute: 0, endMinute: 24 * 60 }]
+  const ALL_DAY_WORKING_HOURS = Object.fromEntries([0, 1, 2, 3, 4, 5, 6].map((day) => [day, ALL_DAY_RANGE]))
+
+  it('reports goalProgress against the configured target/ceiling, work-hours-scoped', () => {
+    const config = { focusTargetMs: 60 * MIN, overworkCeilingMs: 90 * MIN }
+    const heartbeats = [
+      heartbeat({ appName: 'Code', startedAt: 0, endedAt: 50 * MIN }),
+      heartbeat({ appName: 'Email', startedAt: 50 * MIN, endedAt: 80 * MIN }),
+    ]
+
+    const { goalProgress } = derive({ heartbeats, categories, rules, workingHours: ALL_DAY_WORKING_HOURS, config, now: 80 * MIN })
+
+    expect(goalProgress).toEqual({
+      focusAccumulatedMs: 50 * MIN,
+      focusTargetMs: 60 * MIN,
+      workActiveMs: 80 * MIN,
+      overworkCeilingMs: 90 * MIN,
+    })
+  })
+
+  it('leaves goalProgress targets null when the user has not set a goal', () => {
+    const heartbeats = [heartbeat({ appName: 'Code', startedAt: 0, endedAt: 50 * MIN })]
+
+    const { goalProgress } = derive({ heartbeats, categories, rules, workingHours: ALL_DAY_WORKING_HOURS, now: 50 * MIN })
+
+    expect(goalProgress.focusTargetMs).toBeNull()
+    expect(goalProgress.overworkCeilingMs).toBeNull()
+  })
+
+  it('fires focusTargetReached once accumulated work-hours Focus time reaches the target', () => {
+    const config = { focusTargetMs: 60 * MIN }
+
+    const underTarget = derive({
+      heartbeats: [heartbeat({ appName: 'Code', startedAt: 0, endedAt: 59 * MIN })],
+      categories,
+      rules,
+      workingHours: ALL_DAY_WORKING_HOURS,
+      config,
+      now: 59 * MIN,
+    })
+    const atTarget = derive({
+      heartbeats: [heartbeat({ appName: 'Code', startedAt: 0, endedAt: 60 * MIN })],
+      categories,
+      rules,
+      workingHours: ALL_DAY_WORKING_HOURS,
+      config,
+      now: 60 * MIN,
+    })
+
+    expect(underTarget.dueSignals.focusTargetReached).toBe(false)
+    expect(atTarget.dueSignals.focusTargetReached).toBe(true)
+  })
+
+  it('never fires focusTargetReached when no target is configured', () => {
+    const heartbeats = [heartbeat({ appName: 'Code', startedAt: 0, endedAt: 60 * MIN })]
+
+    const { dueSignals } = derive({ heartbeats, categories, rules, workingHours: ALL_DAY_WORKING_HOURS, now: 60 * MIN })
+
+    expect(dueSignals.focusTargetReached).toBe(false)
+  })
+
+  it('does not re-fire focusTargetReached once it has already fired today', () => {
+    const config = { focusTargetMs: 60 * MIN }
+    const heartbeats = [heartbeat({ appName: 'Code', startedAt: 0, endedAt: 90 * MIN })]
+
+    const { dueSignals } = derive({
+      heartbeats,
+      categories,
+      rules,
+      workingHours: ALL_DAY_WORKING_HOURS,
+      config,
+      lastFocusTargetFiredAt: 60 * MIN,
+      now: 90 * MIN,
+    })
+
+    expect(dueSignals.focusTargetReached).toBe(false)
+  })
+
+  it('never fires focusTargetReached while Work Mode is off', () => {
+    const config = { focusTargetMs: 60 * MIN }
+    const heartbeats = [heartbeat({ appName: 'Code', startedAt: 0, endedAt: 60 * MIN })]
+
+    const { dueSignals } = derive({ heartbeats, categories, rules, config, now: 60 * MIN })
+
+    expect(dueSignals.focusTargetReached).toBe(false)
+  })
+
+  it('fires burnout once work-hours active time crosses the Overwork ceiling', () => {
+    const config = { overworkCeilingMs: 90 * MIN }
+
+    const underCeiling = derive({
+      heartbeats: [
+        heartbeat({ appName: 'Code', startedAt: 0, endedAt: 60 * MIN }),
+        heartbeat({ appName: 'Email', startedAt: 60 * MIN, endedAt: 89 * MIN }),
+      ],
+      categories,
+      rules,
+      workingHours: ALL_DAY_WORKING_HOURS,
+      config,
+      now: 89 * MIN,
+    })
+    const atCeiling = derive({
+      heartbeats: [
+        heartbeat({ appName: 'Code', startedAt: 0, endedAt: 60 * MIN }),
+        heartbeat({ appName: 'Email', startedAt: 60 * MIN, endedAt: 90 * MIN }),
+      ],
+      categories,
+      rules,
+      workingHours: ALL_DAY_WORKING_HOURS,
+      config,
+      now: 90 * MIN,
+    })
+
+    expect(underCeiling.dueSignals.burnout).toBe(false)
+    expect(atCeiling.dueSignals.burnout).toBe(true)
+  })
+
+  it('never fires burnout when no ceiling is configured', () => {
+    const heartbeats = [heartbeat({ appName: 'Code', startedAt: 0, endedAt: 90 * MIN })]
+
+    const { dueSignals } = derive({ heartbeats, categories, rules, workingHours: ALL_DAY_WORKING_HOURS, now: 90 * MIN })
+
+    expect(dueSignals.burnout).toBe(false)
+  })
+
+  it('does not re-fire burnout once it has already fired today', () => {
+    const config = { overworkCeilingMs: 90 * MIN }
+    const heartbeats = [heartbeat({ appName: 'Code', startedAt: 0, endedAt: 120 * MIN })]
+
+    const { dueSignals } = derive({
+      heartbeats,
+      categories,
+      rules,
+      workingHours: ALL_DAY_WORKING_HOURS,
+      config,
+      lastBurnoutFiredAt: 90 * MIN,
+      now: 120 * MIN,
+    })
+
+    expect(dueSignals.burnout).toBe(false)
+  })
+
+  it('never fires burnout while Work Mode is off', () => {
+    const config = { overworkCeilingMs: 90 * MIN }
+    const heartbeats = [heartbeat({ appName: 'Code', startedAt: 0, endedAt: 90 * MIN })]
+
+    const { dueSignals } = derive({ heartbeats, categories, rules, config, now: 90 * MIN })
+
+    expect(dueSignals.burnout).toBe(false)
+  })
+})

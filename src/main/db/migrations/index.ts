@@ -11,6 +11,7 @@ import { createDiscardedSpans } from './010-create-discarded-spans'
 import { createSettings } from './011-create-settings'
 import { addWsTokenToSettings } from './012-add-ws-token-to-settings'
 import { addWorkModeToSettings } from './013-add-work-mode-to-settings'
+import { addGoalsToSettings } from './014-add-goals-to-settings'
 import type { Migration } from './types'
 
 /**
@@ -35,6 +36,7 @@ export const migrations: Migration[] = [
   createSettings,
   addWsTokenToSettings,
   addWorkModeToSettings,
+  addGoalsToSettings,
 ]
 
 export { runMigrations } from './runner'

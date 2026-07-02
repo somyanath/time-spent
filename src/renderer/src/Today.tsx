@@ -1,17 +1,17 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { FormEvent } from 'react'
 import type { Category } from '../../shared/category'
-import type { FocusQualityScoreBreakdown } from '../../shared/derive'
+import type { FocusQualityScoreBreakdown, GoalProgress } from '../../shared/derive'
 import type { Span } from '../../shared/heartbeat'
 import type { Project } from '../../shared/project'
 
 /**
  * The Today surface — the daily review home. Renders the Focus Quality Score
- * with its component breakdown (#25), the category-colored timeline of
- * derived Spans plus a category split summary (#18), and lets the user
- * correct the day inline (#20): Override a span's Category/Project, Discard
- * a falsely-tracked span, or add a Manual Entry for time the tracker
- * couldn't observe.
+ * with its component breakdown (#25), progress toward the daily Goals
+ * (#27), the category-colored timeline of derived Spans plus a category
+ * split summary (#18), and lets the user correct the day inline (#20):
+ * Override a span's Category/Project, Discard a falsely-tracked span, or
+ * add a Manual Entry for time the tracker couldn't observe.
  */
 export function Today(): JSX.Element {
   const today = new Date().toLocaleDateString(undefined, {
@@ -28,19 +28,22 @@ export function Today(): JSX.Element {
   const [focusQuality, setFocusQuality] = useState<{ score: number; breakdown: FocusQualityScoreBreakdown } | null>(
     null,
   )
+  const [goalProgress, setGoalProgress] = useState<GoalProgress | null>(null)
 
   async function refresh(): Promise<void> {
     if (!api) return
-    const [nextSpans, nextCategories, nextProjects, nextFocusQuality] = await Promise.all([
+    const [nextSpans, nextCategories, nextProjects, nextFocusQuality, nextGoalProgress] = await Promise.all([
       api.getTodaySpans(),
       api.listCategories(),
       api.listProjects(),
       api.getTodayFocusQuality(),
+      api.getTodayGoalProgress(),
     ])
     setSpans(nextSpans)
     setCategories(nextCategories)
     setProjects(nextProjects)
     setFocusQuality(nextFocusQuality)
+    setGoalProgress(nextGoalProgress)
   }
 
   useEffect(() => {
@@ -68,6 +71,37 @@ export function Today(): JSX.Element {
             <li>Distraction penalty: {formatPercent(focusQuality.breakdown.distractionPenalty)}</li>
             <li>Focus continuity: {formatPercent(focusQuality.breakdown.focusContinuity)}</li>
           </ul>
+        </section>
+      )}
+
+      {goalProgress && (goalProgress.focusTargetMs !== null || goalProgress.overworkCeilingMs !== null) && (
+        <section className="today__goals" aria-label="Daily goals">
+          {goalProgress.focusTargetMs !== null && (
+            <div className="today__goal">
+              <span className="today__goal-label">Focus target</span>
+              <progress
+                className="today__goal-bar"
+                value={Math.min(goalProgress.focusAccumulatedMs, goalProgress.focusTargetMs)}
+                max={goalProgress.focusTargetMs}
+              />
+              <span className="today__goal-value">
+                {formatDuration(goalProgress.focusAccumulatedMs)} / {formatDuration(goalProgress.focusTargetMs)}
+              </span>
+            </div>
+          )}
+          {goalProgress.overworkCeilingMs !== null && (
+            <div className="today__goal">
+              <span className="today__goal-label">Overwork ceiling</span>
+              <progress
+                className="today__goal-bar"
+                value={Math.min(goalProgress.workActiveMs, goalProgress.overworkCeilingMs)}
+                max={goalProgress.overworkCeilingMs}
+              />
+              <span className="today__goal-value">
+                {formatDuration(goalProgress.workActiveMs)} / {formatDuration(goalProgress.overworkCeilingMs)}
+              </span>
+            </div>
+          )}
         </section>
       )}
 

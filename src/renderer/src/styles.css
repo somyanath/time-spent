@@ -140,6 +140,41 @@ body {
   font-size: 13px;
 }
 
+.today__goals {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 16px 20px;
+  margin-bottom: 24px;
+}
+
+.today__goal {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.today__goal-label {
+  flex: none;
+  width: 130px;
+  color: var(--text-dim);
+  font-size: 13px;
+}
+
+.today__goal-bar {
+  flex: 1;
+  height: 8px;
+}
+
+.today__goal-value {
+  flex: none;
+  font-size: 13px;
+  color: var(--text-dim);
+}
+
 .today__empty {
   border: 1px dashed var(--border);
   border-radius: 16px;

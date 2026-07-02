@@ -6,6 +6,8 @@ import {
   CATEGORIES_LIST_CHANNEL,
   CATEGORIES_UPDATE_CHANNEL,
   DISCARDED_SPANS_CREATE_CHANNEL,
+  GOALS_GET_CONFIG_CHANNEL,
+  GOALS_SET_CONFIG_CHANNEL,
   MANUAL_ENTRIES_CREATE_CHANNEL,
   MANUAL_ENTRIES_DELETE_CHANNEL,
   OVERRIDES_CREATE_CHANNEL,
@@ -24,6 +26,7 @@ import {
   SETTINGS_GET_CHANNEL,
   SETTINGS_SET_APP_LEVEL_ONLY_CHANNEL,
   TODAY_GET_FOCUS_QUALITY_CHANNEL,
+  TODAY_GET_GOAL_PROGRESS_CHANNEL,
   TODAY_GET_SPANS_CHANNEL,
   WORK_MODE_CLEAR_OVERRIDE_CHANNEL,
   WORK_MODE_GET_STATE_CHANNEL,
@@ -42,6 +45,7 @@ const api: TimeTrackerApi = {
   },
   getTodaySpans: () => ipcRenderer.invoke(TODAY_GET_SPANS_CHANNEL),
   getTodayFocusQuality: () => ipcRenderer.invoke(TODAY_GET_FOCUS_QUALITY_CHANNEL),
+  getTodayGoalProgress: () => ipcRenderer.invoke(TODAY_GET_GOAL_PROGRESS_CHANNEL),
 
   listCategories: () => ipcRenderer.invoke(CATEGORIES_LIST_CHANNEL),
   createCategory: (name, rating) => ipcRenderer.invoke(CATEGORIES_CREATE_CHANNEL, name, rating),
@@ -68,6 +72,9 @@ const api: TimeTrackerApi = {
 
   getSettings: () => ipcRenderer.invoke(SETTINGS_GET_CHANNEL),
   setAppLevelOnly: (value) => ipcRenderer.invoke(SETTINGS_SET_APP_LEVEL_ONLY_CHANNEL, value),
+
+  getGoalsConfig: () => ipcRenderer.invoke(GOALS_GET_CONFIG_CHANNEL),
+  setGoalsConfig: (config) => ipcRenderer.invoke(GOALS_SET_CONFIG_CHANNEL, config),
 
   getWorkModeState: () => ipcRenderer.invoke(WORK_MODE_GET_STATE_CHANNEL),
   getWorkingHours: () => ipcRenderer.invoke(WORK_MODE_GET_WORKING_HOURS_CHANNEL),

@@ -38,6 +38,10 @@ export interface DeriveConfig {
   nudgeCooldownMs?: number
   /** Accumulated Focus-rated active time before a Break Reminder becomes eligible. Defaults to 120 min. */
   breakReminderThresholdMs?: number
+  /** The daily accumulated-Focus-time goal (#27); user-set, no default — null/undefined disables Goal progress and the celebration signal entirely. */
+  focusTargetMs?: number | null
+  /** The daily work-hours active-time ceiling (#27); user-set, no default — null/undefined disables Goal progress and the Burnout signal entirely. */
+  overworkCeilingMs?: number | null
 }
 
 /**
@@ -68,6 +72,10 @@ export interface DeriveInput {
   lastBreakReminderFiredAt?: number | null
   /** A user-requested snooze; the Break Reminder stays ineligible until this timestamp. */
   breakReminderSnoozedUntil?: number | null
+  /** When the Focus-target celebration last fired; the caller resets this to null at the start of each calendar day so it can fire again tomorrow. */
+  lastFocusTargetFiredAt?: number | null
+  /** When the Burnout signal last fired; same once-per-day contract as `lastFocusTargetFiredAt`. */
+  lastBurnoutFiredAt?: number | null
   now: number
 }
 
@@ -104,6 +112,23 @@ export interface FocusQualityScoreBreakdown {
 export interface DueSignals {
   nudge: boolean
   breakReminder: boolean
+  /** The aspirational Focus target (#27) has been reached today; fires once/day. */
+  focusTargetReached: boolean
+  /** The protective Overwork ceiling (#27) has been crossed today — the Burnout signal; fires once/day. */
+  burnout: boolean
+}
+
+/**
+ * Daily Goal progress (#27), work-hours-scoped the same way as the Focus
+ * Quality Score: accumulated Focus-rated time toward the aspirational Focus
+ * target, and total active time toward the protective Overwork ceiling. A
+ * null target/ceiling means the user hasn't set that goal.
+ */
+export interface GoalProgress {
+  focusAccumulatedMs: number
+  focusTargetMs: number | null
+  workActiveMs: number
+  overworkCeilingMs: number | null
 }
 
 export interface DeriveResult {
@@ -114,6 +139,7 @@ export interface DeriveResult {
   focusQualityScore: number
   focusQualityBreakdown: FocusQualityScoreBreakdown
   workModeState: WorkModeState
+  goalProgress: GoalProgress
   dueSignals: DueSignals
 }
 
@@ -146,6 +172,8 @@ export function derive(input: DeriveInput): DeriveResult {
   const nudgePurityThreshold = input.config?.nudgePurityThreshold ?? DEFAULT_NUDGE_PURITY_THRESHOLD
   const nudgeCooldownMs = input.config?.nudgeCooldownMs ?? DEFAULT_NUDGE_COOLDOWN_MS
   const breakReminderThresholdMs = input.config?.breakReminderThresholdMs ?? DEFAULT_BREAK_REMINDER_THRESHOLD_MS
+  const focusTargetMs = input.config?.focusTargetMs ?? null
+  const overworkCeilingMs = input.config?.overworkCeilingMs ?? null
   const orderedRules = [...(input.rules ?? [])].sort((a, b) => a.position - b.position)
   const categoriesById = new Map((input.categories ?? []).map((category) => [category.id, category]))
   const projectsById = new Map((input.projects ?? []).map((project) => [project.id, project]))
@@ -204,7 +232,8 @@ export function derive(input: DeriveInput): DeriveResult {
     focusSessions,
     input.workingHours ?? {},
   )
-  const dueSignals = computeDueSignals(spans, breaks, workModeState, input.now, {
+  const goalProgress = computeGoalProgress(spans, input.workingHours ?? {}, focusTargetMs, overworkCeilingMs)
+  const dueSignals = computeDueSignals(spans, breaks, workModeState, goalProgress, input.now, {
     nudgeWindowMs,
     nudgePurityThreshold,
     nudgeCooldownMs,
@@ -212,9 +241,45 @@ export function derive(input: DeriveInput): DeriveResult {
     lastNudgeFiredAt: input.lastNudgeFiredAt ?? null,
     lastBreakReminderFiredAt: input.lastBreakReminderFiredAt ?? null,
     breakReminderSnoozedUntil: input.breakReminderSnoozedUntil ?? null,
+    lastFocusTargetFiredAt: input.lastFocusTargetFiredAt ?? null,
+    lastBurnoutFiredAt: input.lastBurnoutFiredAt ?? null,
   })
 
-  return { spans, breaks, focusSessions, focusQualityScore, focusQualityBreakdown, workModeState, dueSignals }
+  return {
+    spans,
+    breaks,
+    focusSessions,
+    focusQualityScore,
+    focusQualityBreakdown,
+    workModeState,
+    goalProgress,
+    dueSignals,
+  }
+}
+
+/**
+ * Goal progress (#27): work-hours-scoped accumulated Focus time (toward the
+ * aspirational Focus target) and total active time (toward the protective
+ * Overwork ceiling) — the same work-hours clipping `computeFocusQualityScore`
+ * uses, so the two surfaces agree on what counts as "active" today.
+ */
+function computeGoalProgress(
+  spans: readonly Span[],
+  workingHours: WorkingHoursSchedule,
+  focusTargetMs: number | null,
+  overworkCeilingMs: number | null,
+): GoalProgress {
+  let workActiveMs = 0
+  let focusAccumulatedMs = 0
+
+  for (const span of spans) {
+    const workMs = workingHoursOverlapMs(span.startedAt, span.endedAt, workingHours)
+    if (workMs <= 0) continue
+    workActiveMs += workMs
+    if (span.rating === 'focus') focusAccumulatedMs += workMs
+  }
+
+  return { focusAccumulatedMs, focusTargetMs, workActiveMs, overworkCeilingMs }
 }
 
 /**
@@ -375,25 +440,64 @@ interface DueSignalsOptions {
   lastNudgeFiredAt: number | null
   lastBreakReminderFiredAt: number | null
   breakReminderSnoozedUntil: number | null
+  lastFocusTargetFiredAt: number | null
+  lastBurnoutFiredAt: number | null
 }
 
 /**
- * The Nudge and Break Reminder (#26) — notify-only coaching signals, gated by
- * Work Mode and computed purely from derived state plus the caller-supplied
- * last-fired state, so the thin effectful layer only has to fire the OS
- * notification and remember when it did.
+ * The Nudge, Break Reminder (#26), and Goals (#27) — notify-only coaching
+ * signals, gated by Work Mode and computed purely from derived state plus
+ * the caller-supplied last-fired state, so the thin effectful layer only has
+ * to fire the OS notification and remember when it did.
  */
 function computeDueSignals(
   spans: readonly Span[],
   breaks: readonly Break[],
   workModeState: WorkModeState,
+  goalProgress: GoalProgress,
   now: number,
   options: DueSignalsOptions,
 ): DueSignals {
   return {
     nudge: computeNudgeEligible(spans, workModeState, now, options),
     breakReminder: computeBreakReminderEligible(spans, breaks, workModeState, now, options),
+    focusTargetReached: computeFocusTargetReachedEligible(goalProgress, workModeState, options),
+    burnout: computeBurnoutEligible(goalProgress, workModeState, options),
   }
+}
+
+/**
+ * Eligible once accumulated work-hours Focus time reaches the user-set
+ * Focus target — a one-shot celebration, latched by `lastFocusTargetFiredAt`
+ * for the rest of the day (the caller resets it to null at the next
+ * calendar day, the same once-per-day contract as `computeBurnoutEligible`).
+ */
+function computeFocusTargetReachedEligible(
+  goalProgress: GoalProgress,
+  workModeState: WorkModeState,
+  options: DueSignalsOptions,
+): boolean {
+  if (!workModeState.isOn) return false
+  if (goalProgress.focusTargetMs === null) return false
+  if (options.lastFocusTargetFiredAt !== null) return false
+  return goalProgress.focusAccumulatedMs >= goalProgress.focusTargetMs
+}
+
+/**
+ * The Burnout signal: eligible once work-hours total active time crosses the
+ * user-set Overwork ceiling — deterministic, not inferred. One-shot per day,
+ * latched by `lastBurnoutFiredAt` the same way as the Focus-target
+ * celebration.
+ */
+function computeBurnoutEligible(
+  goalProgress: GoalProgress,
+  workModeState: WorkModeState,
+  options: DueSignalsOptions,
+): boolean {
+  if (!workModeState.isOn) return false
+  if (goalProgress.overworkCeilingMs === null) return false
+  if (options.lastBurnoutFiredAt !== null) return false
+  return goalProgress.workActiveMs >= goalProgress.overworkCeilingMs
 }
 
 /**
