@@ -115,6 +115,37 @@ describe('HeartbeatTracker', () => {
     expect(persist).toHaveBeenCalledWith([expect.objectContaining({ idleSeconds: 3 })])
   })
 
+  it('drops observations and closes the open heartbeat while paused (#30)', () => {
+    const persist = vi.fn()
+    let paused = false
+    const tracker = new HeartbeatTracker({ persist, isPaused: () => paused })
+
+    tracker.handleObservation(observation({ timestamp: 0 }))
+    tracker.handleObservation(observation({ timestamp: 3_000 }))
+    paused = true
+    tracker.handleObservation(observation({ timestamp: 6_000 }))
+    tracker.flush()
+
+    expect(persist).toHaveBeenCalledTimes(1)
+    expect(persist).toHaveBeenCalledWith([expect.objectContaining({ startedAt: 0, endedAt: 3_000 })])
+  })
+
+  it('resumes recording once unpaused, with no memory of the paused gap (#30)', () => {
+    const persist = vi.fn()
+    let paused = true
+    const tracker = new HeartbeatTracker({ persist, isPaused: () => paused })
+
+    tracker.handleObservation(observation({ timestamp: 0 }))
+    tracker.flush()
+    expect(persist).not.toHaveBeenCalled()
+
+    paused = false
+    tracker.handleObservation(observation({ timestamp: 3_000 }))
+    tracker.flush()
+
+    expect(persist).toHaveBeenCalledWith([expect.objectContaining({ startedAt: 3_000, endedAt: 3_000 })])
+  })
+
   it('lets a flush-split session be re-merged into one span by derive()', async () => {
     const persisted: import('../../shared/heartbeat').Heartbeat[] = []
     const tracker = new HeartbeatTracker({ persist: (heartbeats) => persisted.push(...heartbeats) })

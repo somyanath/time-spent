@@ -8,6 +8,8 @@ export interface AppSettings {
   appLevelOnly: boolean
   /** The per-install token (#22) the browser extension must present to the localhost WS server. */
   wsToken: string
+  /** The tray's privacy-pause toggle (#30): when on, Heartbeat collection halts entirely. */
+  trackingPaused: boolean
 }
 
 /** The renderer's read of where window-title capture stands right now (#21). */

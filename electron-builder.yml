@@ -23,6 +23,13 @@ mac:
   # LSUIElement grant (app.dock.hide() covers the same behaviour in `pnpm dev`).
   extendInfo:
     LSUIElement: true
-  # Personal use: no notarization; a free "Personal Team" signature (or none for
-  # a local --dir build) keeps TCC grants stable across rebuilds (see PRD).
-  identity: null
+  # Personal use: no notarization required. `identity` is deliberately left
+  # unset (not `null`) so electron-builder auto-discovers a locally-installed
+  # Apple ID "Personal Team" certificate — free, created once via Xcode ▸
+  # Settings ▸ Accounts ▸ Manage Certificates ▸ "+" ▸ Apple Development — and
+  # signs with it. That gives the app a single stable identity across
+  # rebuilds, so TCC grants (Screen Recording, etc.) survive a rebuild
+  # instead of re-prompting every time. With no certificate installed (e.g.
+  # in CI, or on a platform other than macOS) electron-builder logs a warning
+  # and falls back to an unsigned build rather than failing.
+  gatekeeperAssess: false

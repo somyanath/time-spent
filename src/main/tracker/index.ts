@@ -25,6 +25,9 @@ export interface TrackingController {
 export function startTracking(db: Database.Database): TrackingController {
   const tracker = new HeartbeatTracker({
     persist: (heartbeats) => insertHeartbeats(db, heartbeats),
+    // Read fresh on every poll so the tray's privacy-pause toggle (#30) takes
+    // effect on the next tick, no restart required.
+    isPaused: () => getSettings(db).trackingPaused,
   })
 
   const extensionUrlServer = new ExtensionUrlServer({ token: getSettings(db).wsToken, port: EXTENSION_WS_PORT })

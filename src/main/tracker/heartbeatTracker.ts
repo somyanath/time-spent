@@ -2,6 +2,13 @@ import type { Heartbeat, Observation } from '../../shared/heartbeat'
 
 export interface HeartbeatTrackerOptions {
   persist: (heartbeats: readonly Heartbeat[]) => void
+  /**
+   * Read fresh on every Observation (#30's privacy-pause toggle). While
+   * true, Observations are dropped and any open Heartbeat is closed exactly
+   * like a system suspend — collection halts entirely until it reads false
+   * again, no restart required.
+   */
+  isPaused?: () => boolean
 }
 
 /**
@@ -23,6 +30,11 @@ export class HeartbeatTracker {
   constructor(private readonly options: HeartbeatTrackerOptions) {}
 
   handleObservation(observation: Observation): void {
+    if (this.options.isPaused?.()) {
+      this.closeOpen()
+      return
+    }
+
     if (this.open && sameIdentity(this.open, observation)) {
       this.open.endedAt = observation.timestamp
       this.open.idleSeconds = observation.idleSeconds

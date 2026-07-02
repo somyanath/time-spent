@@ -1,7 +1,7 @@
 import Database from 'better-sqlite3'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { migrations, runMigrations } from './migrations'
-import { getSettings, setAppLevelOnly } from './settings'
+import { getSettings, setAppLevelOnly, setTrackingPaused } from './settings'
 
 describe('settings persistence', () => {
   let db: Database.Database
@@ -31,6 +31,18 @@ describe('settings persistence', () => {
     setAppLevelOnly(db, false)
 
     expect(getSettings(db).appLevelOnly).toBe(false)
+  })
+
+  it('defaults tracking-paused (privacy pause) to off', () => {
+    expect(getSettings(db).trackingPaused).toBe(false)
+  })
+
+  it('pauses and resumes tracking', () => {
+    setTrackingPaused(db, true)
+    expect(getSettings(db).trackingPaused).toBe(true)
+
+    setTrackingPaused(db, false)
+    expect(getSettings(db).trackingPaused).toBe(false)
   })
 
   it('generates a stable per-install ws token (#22)', () => {
