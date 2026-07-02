@@ -22,3 +22,16 @@ export function getLocalDayRange(now: number): LocalDayRange {
 function pad(value: number): string {
   return value.toString().padStart(2, '0')
 }
+
+/** Every local calendar day overlapping the half-open [startMs, endMs) range, midnight to midnight. */
+export function iterateLocalDays(startMs: number, endMs: number): LocalDayRange[] {
+  const days: LocalDayRange[] = []
+  if (startMs >= endMs) return days
+
+  let cursor = getLocalDayRange(startMs)
+  while (cursor.startMs < endMs) {
+    days.push(cursor)
+    cursor = getLocalDayRange(cursor.endMs)
+  }
+  return days
+}

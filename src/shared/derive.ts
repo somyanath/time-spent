@@ -258,6 +258,23 @@ export function derive(input: DeriveInput): DeriveResult {
 }
 
 /**
+ * The Focus Quality Score computed directly from a day's already-derived
+ * Spans (e.g. from the daily rollup cache), without re-deriving from
+ * Heartbeats. Trends (#28) uses this to score many days fast, reusing the
+ * exact same scoring logic `derive()` runs internally.
+ */
+export function computeDayFocusQuality(
+  spans: readonly Span[],
+  workingHours: WorkingHoursSchedule,
+  config?: Pick<DeriveConfig, 'focusWindowMs' | 'focusPurityThreshold'>,
+): { score: number; breakdown: FocusQualityScoreBreakdown } {
+  const focusWindowMs = config?.focusWindowMs ?? DEFAULT_FOCUS_WINDOW_MS
+  const focusPurityThreshold = config?.focusPurityThreshold ?? DEFAULT_FOCUS_PURITY_THRESHOLD
+  const focusSessions = computeFocusSessions(spans, focusWindowMs, focusPurityThreshold)
+  return computeFocusQualityScore(spans, focusSessions, workingHours)
+}
+
+/**
  * Goal progress (#27): work-hours-scoped accumulated Focus time (toward the
  * aspirational Focus target) and total active time (toward the protective
  * Overwork ceiling) — the same work-hours clipping `computeFocusQualityScore`

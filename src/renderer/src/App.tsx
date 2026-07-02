@@ -1,13 +1,14 @@
 import { useState } from 'react'
 import { Settings } from './Settings'
 import { Today } from './Today'
+import { Trends } from './Trends'
 
-type View = 'today' | 'settings'
+type View = 'today' | 'trends' | 'settings'
 
 /**
- * The dashboard shell. Today is the default landing surface; Settings
- * (Categories + Rules, #18) is the second live surface. Trends arrives in a
- * later slice.
+ * The dashboard shell. Today is the default landing surface; Trends (#28)
+ * shows longer patterns; Settings (Categories + Rules, #18) rounds out the
+ * three live surfaces.
  */
 export function App(): JSX.Element {
   const [view, setView] = useState<View>('today')
@@ -25,8 +26,13 @@ export function App(): JSX.Element {
               Today
             </button>
           </li>
-          <li className="app__nav-item app__nav-item--disabled" aria-disabled="true">
-            Trends
+          <li
+            className={`app__nav-item${view === 'trends' ? ' app__nav-item--active' : ''}`}
+            aria-current={view === 'trends' ? 'page' : undefined}
+          >
+            <button type="button" className="app__nav-link" onClick={() => setView('trends')}>
+              Trends
+            </button>
           </li>
           <li
             className={`app__nav-item${view === 'settings' ? ' app__nav-item--active' : ''}`}
@@ -38,7 +44,11 @@ export function App(): JSX.Element {
           </li>
         </ul>
       </nav>
-      <main className="app__main">{view === 'today' ? <Today /> : <Settings />}</main>
+      <main className="app__main">
+        {view === 'today' && <Today />}
+        {view === 'trends' && <Trends />}
+        {view === 'settings' && <Settings />}
+      </main>
     </div>
   )
 }

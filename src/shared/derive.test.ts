@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { derive } from './derive'
+import { computeDayFocusQuality, derive } from './derive'
 import type { Category, Rule } from './category'
 import type { DiscardedSpan } from './discardedSpan'
 import type { Heartbeat } from './heartbeat'
@@ -836,6 +836,18 @@ describe('derive Focus Quality Score', () => {
     expect(focusQualityBreakdown.focusRatio).toBe(1)
     expect(focusQualityBreakdown.distractionPenalty).toBe(0)
     expect(focusQualityScore).toBe(80)
+  })
+
+  it('computeDayFocusQuality scores already-derived spans (e.g. from the daily rollup cache) identically to a full derive()', () => {
+    const heartbeats = [
+      heartbeat({ appName: 'Code', startedAt: 0, endedAt: 10 * MIN }),
+      heartbeat({ appName: 'Twitter', startedAt: 10 * MIN, endedAt: 20 * MIN }),
+    ]
+
+    const fromDerive = derive({ heartbeats, categories, rules, workingHours: ALL_DAY_WORKING_HOURS, now: 20 * MIN })
+    const fromSpans = computeDayFocusQuality(fromDerive.spans, ALL_DAY_WORKING_HOURS)
+
+    expect(fromSpans).toEqual({ score: fromDerive.focusQualityScore, breakdown: fromDerive.focusQualityBreakdown })
   })
 })
 

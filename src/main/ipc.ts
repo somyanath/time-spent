@@ -13,6 +13,7 @@ import { createOverride, deleteOverride } from './db/overrides'
 import { createProject, deleteProject, listProjects, updateProject } from './db/projects'
 import { createRule, deleteRule, listRules, reorderRules } from './db/rules'
 import { getSettings, setAppLevelOnly } from './db/settings'
+import { getTrends } from './db/trends'
 import {
   clearWorkModeOverride,
   getWorkingHours,
@@ -55,6 +56,7 @@ import {
   TODAY_GET_FOCUS_QUALITY_CHANNEL,
   TODAY_GET_GOAL_PROGRESS_CHANNEL,
   TODAY_GET_SPANS_CHANNEL,
+  TRENDS_GET_CHANNEL,
   WORK_MODE_CLEAR_OVERRIDE_CHANNEL,
   WORK_MODE_GET_STATE_CHANNEL,
   WORK_MODE_GET_WORKING_HOURS_CHANNEL,
@@ -66,6 +68,7 @@ import type { Override } from '../shared/override'
 import { detectSilentPermissionLapse } from '../shared/permissions'
 import type { AppSettings, PermissionsStatus } from '../shared/permissions'
 import type { Project } from '../shared/project'
+import type { TrendsResult } from '../shared/trends'
 import type { WorkingHoursSchedule, WorkModeState } from '../shared/workMode'
 
 const LAPSE_CHECK_SAMPLE_SIZE = 5
@@ -88,6 +91,10 @@ export function registerIpcHandlers(db: Database.Database): void {
     const now = Date.now()
     const { startMs, endMs } = getLocalDayRange(now)
     return getGoalProgress(db, { startMs, endMs, now })
+  })
+
+  ipcMain.handle(TRENDS_GET_CHANNEL, (_event, range: { startMs: number; endMs: number }): TrendsResult => {
+    return getTrends(db, { startMs: range.startMs, endMs: range.endMs, now: Date.now() })
   })
 
   ipcMain.handle(CATEGORIES_LIST_CHANNEL, (): Category[] => listCategories(db))

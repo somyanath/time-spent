@@ -7,6 +7,7 @@ import type { ManualEntry } from './manualEntry'
 import type { Override } from './override'
 import type { AppSettings, PermissionsStatus } from './permissions'
 import type { Project } from './project'
+import type { TrendsResult } from './trends'
 import type { WorkingHoursSchedule, WorkModeState } from './workMode'
 
 /**
@@ -26,6 +27,9 @@ export interface TimeTrackerApi {
   getTodayFocusQuality: () => Promise<{ score: number; breakdown: FocusQualityScoreBreakdown }>
   /** Today's Goal progress (#27): accumulated Focus time toward the Focus target, and active time toward the Overwork ceiling. */
   getTodayGoalProgress: () => Promise<GoalProgress>
+
+  /** Focus time, Focus Quality Score, distraction, and top apps/categories/projects over a selectable range (#28), via the daily rollup cache. */
+  getTrends: (range: { startMs: number; endMs: number }) => Promise<TrendsResult>
 
   listCategories: () => Promise<Category[]>
   createCategory: (name: string, rating: ProductivityRating) => Promise<Category>

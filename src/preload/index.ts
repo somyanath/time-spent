@@ -28,6 +28,7 @@ import {
   TODAY_GET_FOCUS_QUALITY_CHANNEL,
   TODAY_GET_GOAL_PROGRESS_CHANNEL,
   TODAY_GET_SPANS_CHANNEL,
+  TRENDS_GET_CHANNEL,
   WORK_MODE_CLEAR_OVERRIDE_CHANNEL,
   WORK_MODE_GET_STATE_CHANNEL,
   WORK_MODE_GET_WORKING_HOURS_CHANNEL,
@@ -46,6 +47,8 @@ const api: TimeTrackerApi = {
   getTodaySpans: () => ipcRenderer.invoke(TODAY_GET_SPANS_CHANNEL),
   getTodayFocusQuality: () => ipcRenderer.invoke(TODAY_GET_FOCUS_QUALITY_CHANNEL),
   getTodayGoalProgress: () => ipcRenderer.invoke(TODAY_GET_GOAL_PROGRESS_CHANNEL),
+
+  getTrends: (range) => ipcRenderer.invoke(TRENDS_GET_CHANNEL, range),
 
   listCategories: () => ipcRenderer.invoke(CATEGORIES_LIST_CHANNEL),
   createCategory: (name, rating) => ipcRenderer.invoke(CATEGORIES_CREATE_CHANNEL, name, rating),
