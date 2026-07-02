@@ -1,7 +1,9 @@
+import { writeFileSync, copyFileSync } from 'node:fs'
 import type Database from 'better-sqlite3'
-import { ipcMain } from 'electron'
+import { BrowserWindow, dialog, ipcMain } from 'electron'
 import { createCategory, deleteCategory, listCategories, updateCategory } from './db/categories'
 import { getOrComputeDailyRollup } from './db/dailyRollup'
+import { deleteAllData, exportDailyRollupsCsv, exportSpansCsv } from './db/dataOwnership'
 import { createDiscardedSpan } from './db/discardedSpans'
 import { getFocusQuality } from './db/focusQuality'
 import type { FocusQualityResult } from './db/focusQuality'
@@ -33,6 +35,10 @@ import {
   CATEGORIES_DELETE_CHANNEL,
   CATEGORIES_LIST_CHANNEL,
   CATEGORIES_UPDATE_CHANNEL,
+  DATA_COPY_DATABASE_CHANNEL,
+  DATA_DELETE_ALL_CHANNEL,
+  DATA_EXPORT_DAILY_ROLLUPS_CSV_CHANNEL,
+  DATA_EXPORT_SPANS_CSV_CHANNEL,
   DISCARDED_SPANS_CREATE_CHANNEL,
   GOALS_GET_CONFIG_CHANNEL,
   GOALS_SET_CONFIG_CHANNEL,
@@ -63,6 +69,7 @@ import {
   WORK_MODE_SET_OVERRIDE_CHANNEL,
   WORK_MODE_SET_WORKING_HOURS_CHANNEL,
 } from '../shared/ipcChannels'
+import type { FileSaveResult } from '../shared/dataOwnership'
 import type { ManualEntry } from '../shared/manualEntry'
 import type { Override } from '../shared/override'
 import { detectSilentPermissionLapse } from '../shared/permissions'
@@ -198,4 +205,47 @@ export function registerIpcHandlers(db: Database.Database): void {
   })
   ipcMain.handle(PERMISSIONS_REQUEST_SCREEN_RECORDING_CHANNEL, (): void => requestScreenRecordingAccess())
   ipcMain.handle(PERMISSIONS_OPEN_SCREEN_RECORDING_SETTINGS_CHANNEL, (): Promise<void> => openScreenRecordingSettings())
+
+  ipcMain.handle(DATA_EXPORT_SPANS_CSV_CHANNEL, async (event): Promise<FileSaveResult> => {
+    return saveCsv(event.sender, 'spans.csv', () => exportSpansCsv(db, { now: Date.now() }))
+  })
+  ipcMain.handle(DATA_EXPORT_DAILY_ROLLUPS_CSV_CHANNEL, async (event): Promise<FileSaveResult> => {
+    return saveCsv(event.sender, 'daily-rollups.csv', () => exportDailyRollupsCsv(db, { now: Date.now() }))
+  })
+  ipcMain.handle(DATA_COPY_DATABASE_CHANNEL, async (event): Promise<FileSaveResult> => {
+    const { canceled, filePath } = await showSaveDialog(event.sender, {
+      defaultPath: 'timetracker-backup.db',
+      filters: [{ name: 'SQLite Database', extensions: ['db'] }],
+    })
+    if (canceled || !filePath) return { canceled: true, filePath: null }
+
+    // Flush the WAL into the main file first, so the copy is a complete, lossless snapshot.
+    db.pragma('wal_checkpoint(TRUNCATE)')
+    copyFileSync(db.name, filePath)
+    return { canceled: false, filePath }
+  })
+  ipcMain.handle(DATA_DELETE_ALL_CHANNEL, (): void => deleteAllData(db))
+}
+
+function showSaveDialog(
+  sender: Electron.WebContents,
+  options: Electron.SaveDialogOptions,
+): Promise<Electron.SaveDialogReturnValue> {
+  const window = BrowserWindow.fromWebContents(sender)
+  return window ? dialog.showSaveDialog(window, options) : dialog.showSaveDialog(options)
+}
+
+async function saveCsv(
+  sender: Electron.WebContents,
+  defaultFileName: string,
+  buildCsv: () => string,
+): Promise<FileSaveResult> {
+  const { canceled, filePath } = await showSaveDialog(sender, {
+    defaultPath: defaultFileName,
+    filters: [{ name: 'CSV', extensions: ['csv'] }],
+  })
+  if (canceled || !filePath) return { canceled: true, filePath: null }
+
+  writeFileSync(filePath, buildCsv(), 'utf-8')
+  return { canceled: false, filePath }
 }

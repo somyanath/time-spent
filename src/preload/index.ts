@@ -5,6 +5,10 @@ import {
   CATEGORIES_DELETE_CHANNEL,
   CATEGORIES_LIST_CHANNEL,
   CATEGORIES_UPDATE_CHANNEL,
+  DATA_COPY_DATABASE_CHANNEL,
+  DATA_DELETE_ALL_CHANNEL,
+  DATA_EXPORT_DAILY_ROLLUPS_CSV_CHANNEL,
+  DATA_EXPORT_SPANS_CSV_CHANNEL,
   DISCARDED_SPANS_CREATE_CHANNEL,
   GOALS_GET_CONFIG_CHANNEL,
   GOALS_SET_CONFIG_CHANNEL,
@@ -88,6 +92,11 @@ const api: TimeTrackerApi = {
   getPermissionsStatus: () => ipcRenderer.invoke(PERMISSIONS_GET_STATUS_CHANNEL),
   requestScreenRecordingAccess: () => ipcRenderer.invoke(PERMISSIONS_REQUEST_SCREEN_RECORDING_CHANNEL),
   openScreenRecordingSettings: () => ipcRenderer.invoke(PERMISSIONS_OPEN_SCREEN_RECORDING_SETTINGS_CHANNEL),
+
+  exportSpansCsv: () => ipcRenderer.invoke(DATA_EXPORT_SPANS_CSV_CHANNEL),
+  exportDailyRollupsCsv: () => ipcRenderer.invoke(DATA_EXPORT_DAILY_ROLLUPS_CSV_CHANNEL),
+  copyDatabase: () => ipcRenderer.invoke(DATA_COPY_DATABASE_CHANNEL),
+  deleteAllData: () => ipcRenderer.invoke(DATA_DELETE_ALL_CHANNEL),
 }
 
 contextBridge.exposeInMainWorld('timeTracker', api)

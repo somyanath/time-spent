@@ -43,3 +43,8 @@ export const WORK_MODE_CLEAR_OVERRIDE_CHANNEL = 'workMode:clearOverride'
 export const PERMISSIONS_GET_STATUS_CHANNEL = 'permissions:getStatus'
 export const PERMISSIONS_REQUEST_SCREEN_RECORDING_CHANNEL = 'permissions:requestScreenRecording'
 export const PERMISSIONS_OPEN_SCREEN_RECORDING_SETTINGS_CHANNEL = 'permissions:openScreenRecordingSettings'
+
+export const DATA_EXPORT_SPANS_CSV_CHANNEL = 'data:exportSpansCsv'
+export const DATA_EXPORT_DAILY_ROLLUPS_CSV_CHANNEL = 'data:exportDailyRollupsCsv'
+export const DATA_COPY_DATABASE_CHANNEL = 'data:copyDatabase'
+export const DATA_DELETE_ALL_CHANNEL = 'data:deleteAll'

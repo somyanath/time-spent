@@ -50,6 +50,12 @@ export function getHeartbeatsForRange(db: Database.Database, startMs: number, en
   return rows
 }
 
+/** The start of the earliest recorded Heartbeat, or null if none exist yet — the natural lower bound for an "all data" export. */
+export function getEarliestHeartbeatStartedAt(db: Database.Database): number | null {
+  const row = db.prepare('SELECT MIN(started_at) AS startedAt FROM heartbeats').get() as { startedAt: number | null }
+  return row.startedAt
+}
+
 /** The most recently-completed Heartbeats, most-recent first — feeds the silent-permission-lapse check (#21). */
 export function getRecentHeartbeats(db: Database.Database, limit: number): Heartbeat[] {
   const rows = db

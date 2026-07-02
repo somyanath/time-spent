@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
 import { BrowserUrlSettings } from './BrowserUrlSettings'
+import { DataSettings } from './DataSettings'
 import { GoalsSettings } from './GoalsSettings'
 import { PermissionsSettings } from './PermissionsSettings'
 import { WorkingHoursSettings } from './WorkingHoursSettings'
@@ -335,6 +336,7 @@ export function Settings(): JSX.Element {
       <GoalsSettings />
       <PermissionsSettings />
       <BrowserUrlSettings />
+      <DataSettings />
     </section>
   )
 }

@@ -1,4 +1,5 @@
 import type { Category, ProductivityRating, Rule } from './category'
+import type { FileSaveResult } from './dataOwnership'
 import type { FocusQualityScoreBreakdown, GoalProgress } from './derive'
 import type { DiscardedSpan } from './discardedSpan'
 import type { GoalsConfig } from './goals'
@@ -96,4 +97,13 @@ export interface TimeTrackerApi {
   getPermissionsStatus: () => Promise<PermissionsStatus>
   requestScreenRecordingAccess: () => Promise<void>
   openScreenRecordingSettings: () => Promise<void>
+
+  /** Prompts for a save location, then writes the full history of derived Spans as CSV. */
+  exportSpansCsv: () => Promise<FileSaveResult>
+  /** Prompts for a save location, then writes the full history of daily rollups as CSV. */
+  exportDailyRollupsCsv: () => Promise<FileSaveResult>
+  /** Prompts for a save location, then copies the SQLite database file there for a lossless backup. */
+  copyDatabase: () => Promise<FileSaveResult>
+  /** Wipes the Heartbeat ledger and everything derived from it. Configuration (Categories/Rules/Projects) survives. */
+  deleteAllData: () => Promise<void>
 }
