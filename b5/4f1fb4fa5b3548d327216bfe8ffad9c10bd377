@@ -1,0 +1,37 @@
+.sandcastle/main.mts
+  s_38a4577fdecfdb::t_dace6dc19ad844 27
+.sandcastle/prompt.md
+  s_38a4577fdecfdb::t_dace6dc19ad844 52-56
+CONTEXT.md
+  s_52da47a9b247cf::t_fda795e5b5e1e5 74-77
+package.json
+  s_52da47a9b247cf::t_3a45eef7261620 37
+  s_52da47a9b247cf::t_c4c5fb33247255 21
+  s_52da47a9b247cf::t_459ec0d99a4f2b 38
+docs/adr/0004-browser-extension-mv3-dwell-debounce.md
+  s_52da47a9b247cf::t_e368b7fbdffd7c 1-75
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "b54f1fb4fa5b3548d327216bfe8ffad9c10bd377",
+  "prompts": {},
+  "sessions": {
+    "s_38a4577fdecfdb": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "e748130f-c420-4455-b948-a633096cd2fb",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Somyanath_Mohanty <mohantysomyanath@gmail.com>"
+    },
+    "s_52da47a9b247cf": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "4486ea5c-c5d4-4873-b0cf-381e7f20325c",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": null
+    }
+  }
+}
