@@ -49,6 +49,10 @@ Pick the highest-priority open issue that is not blocked by another open issue.
 
 # Done
 
-When all actionable issues are complete (or you are blocked on all remaining ones), or the open-issues block at the top of this prompt is empty, output the completion signal:
+Only stop the whole run when there is genuinely no work left. Emit the completion signal **only if** the "Open issues" block at the top of this prompt is empty, OR every remaining slice issue is explicitly blocked by another *open* issue.
+
+If you have just finished an issue and any unblocked slice issue remains — including one you named as a candidate "for a future iteration" — do **NOT** emit the signal. Simply end your turn without it; the loop will automatically start the next iteration on the next unblocked issue. Finishing one issue is never by itself a reason to stop the run.
+
+When (and only when) the run is truly complete by the rule above, output the completion signal:
 
 <promise>COMPLETE</promise>

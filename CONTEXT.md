@@ -71,6 +71,10 @@ _Avoid_: private mode, incognito, basic mode
 The origin of a heartbeat's `url`, in precedence order: the browser **Extension** (primary, all browsers) → **AppleScript** (fallback, AppleScript-capable browsers only) → none (Firefox-based browsers like Zen degrade to app-level when the extension is down).
 _Avoid_: tab tracker, browser watcher
 
+**URL Dwell**:
+The rule that the browser Extension reports a tab's `url` only after it has stayed the active tab for a threshold (default **30 s**). Switching away earlier — to a tab whose URL differs from the last reported one — reports nothing; returning to the last-reported URL, or leaving the browser, cancels a pending report. Keeps momentary tab-hopping out of the record and fits Chromium MV3's `alarms` timer. Consequence: the first ~30 s of a tab visit is attributed to the previously reported URL, and sub-30 s visits leave no URL.
+_Avoid_: tab debounce, tab timeout, throttle
+
 **Nudge**:
 The interruptive notification fired when ≥75% of a rolling 15-min window (both configurable) is Distracting. Notify-only in v1 (no blocking), with a ~10-min cooldown. Only fires while Work Mode is on.
 _Avoid_: alert, reminder, distraction popup

@@ -18,7 +18,7 @@
     "typecheck": "pnpm run typecheck:node && pnpm run typecheck:web && pnpm run typecheck:extension",
     "test": "vitest run",
     "test:watch": "vitest",
-    "rebuild:electron": "electron-rebuild -f -w better-sqlite3",
+    "rebuild:electron": "electron-rebuild -f -o better-sqlite3,node-mac-permissions",
     "rebuild:node": "pnpm rebuild better-sqlite3",
     "gen:icon": "node scripts/gen-tray-icon.mjs",
     "build:extension": "node extension/build.mjs",
@@ -34,7 +34,8 @@
     "onlyBuiltDependencies": [
       "better-sqlite3",
       "electron",
-      "esbuild"
+      "esbuild",
+      "node-mac-permissions"
     ]
   },
   "devDependencies": {
