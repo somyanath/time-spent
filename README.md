@@ -53,7 +53,39 @@ pnpm rebuild:node       # before: pnpm test
 | --- | --- |
 | `pnpm dev` | Run the app (electron-vite, HMR). Needs the **Electron** ABI. |
 | `pnpm build` | Bundle main + preload + renderer into `out/`. |
-| `pnpm typecheck` | Type-check the Node and web projects. |
+| `pnpm typecheck` | Type-check the Node, web, and browser-extension projects. |
 | `pnpm test` | Run the Vitest suite. Needs the **Node** ABI. |
 | `pnpm package` | Build an unpacked `.app` under `release/` (sets `LSUIElement`). |
 | `pnpm gen:icon` | Regenerate the tray template icon in `resources/`. |
+| `pnpm build:extension` | Bundle the browser extension into `extension/dist/{chrome,firefox}`. |
+
+## Browser extension
+
+The `extension/` directory holds a single Manifest V3 source (`extension/src`)
+that reports the active browser tab's URL to the app over an authenticated
+`127.0.0.1` WebSocket (ADR-0002) — no data leaves the machine. One `esbuild`
+step compiles it into two loadable bundles, since Chromium and Firefox-based
+browsers require different MV3 background declarations:
+
+```sh
+pnpm build:extension    # writes extension/dist/chrome/ and extension/dist/firefox/
+```
+
+- **Chrome / Arc / Edge / Brave** — open `chrome://extensions`, enable Developer
+  Mode, "Load unpacked", and select `extension/dist/chrome/`. Its background
+  runs as a **service worker**.
+- **Zen / Firefox** — open `about:debugging#/runtime/this-firefox`, "Load
+  Temporary Add-on…", and select any file inside `extension/dist/firefox/`
+  (e.g. `manifest.json`). Its background runs as an **event page**.
+
+After loading, open the extension's options page and paste the per-install
+token shown in the app's Settings so it can authenticate to the localhost
+WebSocket server.
+
+### Running the whole app
+
+```sh
+pnpm install
+pnpm rebuild:electron   # native modules built for Electron's ABI
+pnpm dev                # or: pnpm package to build a release .app
+```
